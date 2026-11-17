@@ -1,0 +1,77 @@
+/* ==========================================================================
+   Design tokens — dark design system (Sprint 0 foundation).
+   Values here are the single source of truth for colours, spacing and type.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* --- Surfaces --- */
+  --color-bg: #0b0d12;
+  --color-bg-elevated: #12151c;
+  --color-surface: #171b24;
+  --color-surface-hover: #1e232e;
+  --color-border: #262c38;
+  --color-border-strong: #343c4b;
+
+  /* --- Text --- */
+  --color-text: #e8ecf3;
+  --color-text-muted: #9aa5b6;
+  --color-text-faint: #6b7686;
+
+  /* --- Brand / accent --- */
+  --color-primary: #5b8cff;
+  --color-primary-strong: #3f74ff;
+  --color-primary-soft: rgba(91, 140, 255, 0.14);
+
+  /* --- Semantic --- */
+  --color-success: #35d399;
+  --color-success-soft: rgba(53, 211, 153, 0.14);
+  --color-warning: #f5b544;
+  --color-warning-soft: rgba(245, 181, 68, 0.14);
+  --color-danger: #ff6b6b;
+  --color-danger-soft: rgba(255, 107, 107, 0.14);
+  --color-neutral: #8b95a7;
+  --color-neutral-soft: rgba(139, 149, 167, 0.14);
+
+  /* --- Typography --- */
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: clamp(2.25rem, 5vw, 3.25rem);
+  --leading-tight: 1.2;
+  --leading-normal: 1.6;
+
+  /* --- Spacing scale --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* --- Radii --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* --- Elevation --- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 0 1px var(--color-border), 0 20px 60px rgba(0, 0, 0, 0.45);
+
+  /* --- Motion --- */
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+
+  /* --- Layout --- */
+  --content-max-width: 46rem;
+}

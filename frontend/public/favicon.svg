@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Education Platform">
+  <rect width="64" height="64" rx="14" fill="#12151c" />
+  <path d="M32 14 54 25 32 36 10 25z" fill="#5b8cff" />
+  <path d="M18 30v11c0 4 6 7 14 7s14-3 14-7V30L32 38z" fill="#2f6bff" opacity="0.75" />
+</svg>
