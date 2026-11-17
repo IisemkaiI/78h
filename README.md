@@ -118,7 +118,7 @@ Copy-Item .env.example .env
 | `LOG_LEVEL` | Уровень логирования | `INFO` |
 | `API_V1_PREFIX` | Префикс версионированного API | `/api/v1` |
 | `BACKEND_HOST`, `BACKEND_PORT` | Адрес, на котором публикуется backend | `127.0.0.1`, `8000` |
-| `CORS_ORIGINS` | Разрешённые origin'ы фронтенда (через запятую) | `http://localhost:5173,http://127.0.0.1:5173` |
+| `CORS_ORIGINS` | Разрешённые origin'ы фронтенда (через запятую) | `http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173` |
 | `POSTGRES_HOST` | Хост БД с точки зрения backend | `127.0.0.1` |
 | `POSTGRES_PORT` | Порт, публикуемый контейнером | `5432` |
 | `POSTGRES_USER` | Пользователь БД | `edu_platform` |

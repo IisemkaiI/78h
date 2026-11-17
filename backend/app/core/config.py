@@ -43,7 +43,11 @@ class Settings(BaseSettings):
     # --- API ---------------------------------------------------------------
     api_v1_prefix: str = "/api/v1"
     # Comma-separated list, e.g. "http://localhost:5173,http://127.0.0.1:5173"
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Defaults: Vite dev server (5173) and `npm run preview` (4173) on IPv4/IPv6 names.
+    cors_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:4173,http://127.0.0.1:4173"
+    )
 
     # --- PostgreSQL --------------------------------------------------------
     postgres_host: str = "127.0.0.1"

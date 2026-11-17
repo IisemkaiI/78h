@@ -130,8 +130,10 @@
 По умолчанию:
 
 ```
-http://localhost:5173,http://127.0.0.1:5173
+http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173
 ```
+
+`5173` — dev-сервер Vite, `4173` — `npm run preview` (production-сборка).
 
 Запрос с другим `Origin` не получает заголовок `access-control-allow-origin`.
 `allow_credentials=true` — задел для будущей аутентификации по cookie.
