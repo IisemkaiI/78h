@@ -88,13 +88,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       if (controller.signal.reason === REQUEST_TIMEOUT_REASON) {
         throw new ApiError(
           'timeout',
-          `Backend did not respond within ${Math.round(timeoutMs / 1000)} s.`,
+          `Backend не ответил за ${Math.round(timeoutMs / 1000)} с.`,
         );
       }
       if (signal?.aborted) {
         throw error;
       }
-      throw new ApiError('network', 'Could not reach the backend. Is it running?');
+      throw new ApiError('network', 'Не удалось подключиться к backend. Проверьте, запущен ли сервер.');
     }
 
     let payload: unknown = null;
@@ -105,7 +105,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       } catch {
         throw new ApiError(
           'invalid_response',
-          'Backend returned a response that is not valid JSON.',
+          'Backend вернул ответ, который не является корректным JSON.',
           response.status,
           'invalid_response',
         );
@@ -118,7 +118,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       }
       throw new ApiError(
         'http',
-        `Backend responded with status ${response.status}.`,
+        `Backend ответил со статусом ${response.status}.`,
         response.status,
         'http_error',
       );
