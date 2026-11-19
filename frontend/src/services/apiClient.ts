@@ -25,12 +25,20 @@ export class ApiError extends Error {
   readonly kind: ApiErrorKind;
   readonly status: number | null;
   readonly code: string;
+  readonly details: unknown;
 
-  constructor(kind: ApiErrorKind, message: string, status: number | null = null, code = 'error') {
+  constructor(
+    kind: ApiErrorKind,
+    message: string,
+    status: number | null = null,
+    code = 'error',
+    details: unknown = null,
+  ) {
     super(message);
     this.kind = kind;
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 
   /** True when the backend could not be reached at all. */
@@ -138,7 +146,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
     if (!response.ok && !acceptedStatusCodes.includes(response.status)) {
       if (isApiErrorResponse(payload)) {
-        throw new ApiError('http', payload.error.message, response.status, payload.error.code);
+        throw new ApiError(
+          'http',
+          payload.error.message,
+          response.status,
+          payload.error.code,
+          payload.error.details,
+        );
       }
       throw new ApiError(
         'http',

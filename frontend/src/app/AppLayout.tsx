@@ -12,6 +12,7 @@ function navLinkClass({ isActive }: { isActive: boolean }): string {
 export function AppLayout({ children }: { children: ReactNode }) {
   const { status, user, signOut } = useAuth();
   const navigate = useNavigate();
+  const canAuthor = user?.permissions.includes('courses:create') ?? false;
 
   const handleLogout = (): void => {
     signOut();
@@ -27,8 +28,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </Link>
 
         <nav className="site-header__nav" aria-label="Основная навигация">
+          <NavLink to="/catalog" className={navLinkClass}>
+            Каталог
+          </NavLink>
+
           {status === 'authenticated' && user !== null ? (
             <>
+              {canAuthor && (
+                <NavLink to="/author" className={navLinkClass}>
+                  Мои курсы
+                </NavLink>
+              )}
               <NavLink to="/profile" className={navLinkClass}>
                 {user.display_name}
               </NavLink>
