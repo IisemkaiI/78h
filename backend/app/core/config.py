@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import quote
 
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/core/config.py -> backend/app/core -> backend/app -> backend -> <project root>
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # --- Application -------------------------------------------------------
     project_name: str = "Education Platform"
-    project_version: str = "0.1.0"
+    project_version: str = "0.2.0"
     app_env: Literal["local", "test", "staging", "production"] = "local"
     debug: bool = False
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
@@ -61,6 +61,30 @@ class Settings(BaseSettings):
     db_pool_timeout: int = 30
     db_connect_timeout: int = 5
     db_ready_timeout: float = 3.0
+
+    # --- Authentication / JWT ---------------------------------------------
+    # No default on purpose: a secret must come from the environment.
+    jwt_secret: SecretStr = SecretStr("")
+    jwt_algorithm: Literal["HS256"] = "HS256"
+    jwt_issuer: str = "education-platform"
+    access_token_expire_minutes: int = 60
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _require_strong_jwt_secret(cls, value: SecretStr) -> SecretStr:
+        """Fail fast when the signing key is missing, weak or a placeholder."""
+        secret = value.get_secret_value()
+        if len(secret) < 32:
+            raise ValueError(
+                "JWT_SECRET must be set in .env and be at least 32 characters long. "
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        if "change_me" in secret.lower():
+            raise ValueError(
+                "JWT_SECRET still contains the placeholder value. Generate a real secret: "
+                'python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        return value
 
     @property
     def cors_origins_list(self) -> list[str]:

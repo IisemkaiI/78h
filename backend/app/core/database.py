@@ -6,14 +6,30 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 
-from sqlalchemy import text
+from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 _settings = get_settings()
+
+# Deterministic constraint names keep Alembic migrations stable and readable.
+NAMING_CONVENTION = {
+    "ix": "ix_%(table_name)s_%(column_0_N_name)s",
+    "uq": "uq_%(table_name)s_%(column_0_N_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+
+class Base(DeclarativeBase):
+    """Declarative base for all ORM models."""
+
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 engine = create_async_engine(
     _settings.database_dsn,
@@ -38,7 +54,7 @@ SessionFactory = async_sessionmaker(
 async def get_session() -> AsyncIterator[AsyncSession]:
     """FastAPI dependency that yields a database session.
 
-    Not used by any endpoint yet — prepared for the first data modules.
+    Used by the user/auth modules; commits are handled by services.
     """
     async with SessionFactory() as session:
         yield session

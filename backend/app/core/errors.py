@@ -26,11 +26,32 @@ _STATUS_CODES: dict[int, str] = {
     403: "forbidden",
     404: "not_found",
     405: "method_not_allowed",
+    409: "conflict",
     422: "validation_error",
     429: "too_many_requests",
     500: "internal_error",
     503: "service_unavailable",
 }
+
+
+class ApiError(StarletteHTTPException):
+    """HTTP error with a stable machine-readable code.
+
+    Raised by services/modules so the transport layer keeps a single error
+    envelope without every module knowing how to build a response.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        details: Any = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(status_code=status_code, detail=message, headers=headers)
+        self.code = code
+        self.details = details
 
 
 def error_response(status_code: int, code: str, message: str, details: Any = None) -> JSONResponse:
@@ -42,6 +63,8 @@ def error_response(status_code: int, code: str, message: str, details: Any = Non
 
 
 async def handle_http_exception(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    if isinstance(exc, ApiError):
+        return error_response(exc.status_code, exc.code, str(exc.detail), exc.details)
     code = _STATUS_CODES.get(exc.status_code, "http_error")
     message = exc.detail if isinstance(exc.detail, str) else "Request failed"
     return error_response(exc.status_code, code, message)
