@@ -1,28 +1,37 @@
 # Education Platform
 
 Многофункциональная образовательная LMS-платформа. Репозиторий содержит
-фундамент проекта (**Sprint 0**) и базовую систему пользователей (**Sprint 1**):
-React-клиент, FastAPI-бэкенд, PostgreSQL, Alembic-миграции, регистрацию, вход по
-JWT, личный профиль и реляционную ролевую модель (RBAC).
+фундамент проекта (**Sprint 0**), базовую систему пользователей (**Sprint 1**)
+и каталог с конструктором курсов (**Sprint 2**): React-клиент, FastAPI-бэкенд,
+PostgreSQL, Alembic-миграции, регистрацию, вход по JWT, личный профиль,
+реляционную ролевую модель (RBAC), публичный каталог курсов с поиском и
+фильтрами, а также редактор курсов для авторов.
 
-Модули каталога курсов, обучения, тестирования, сертификации, корпоративного
-кабинета и админ-панели появятся в следующих спринтах.
+Модули обучения, тестирования, сертификации, корпоративного кабинета и
+админ-панели появятся в следующих спринтах.
 
-## Статус Sprint 1
+## Статус Sprint 2
 
 | Критерий | Статус |
 | --- | --- |
 | PostgreSQL 17 в Docker Compose | проверено (healthy) |
-| Alembic-миграции схемы | применены, `alembic upgrade head` |
-| Системные роли и разрешения | засеяны миграцией (7 ролей, 15 разрешений) |
+| Alembic-миграции схемы | применены, head `0004_seed_courses` |
+| Системные роли и разрешения | 7 ролей, 17 разрешений (расширено в Sprint 2) |
 | Регистрация с базовой ролью `user` | проверено |
 | Вход по email/паролю, JWT access token | проверено |
 | Личный профиль (`GET/PATCH /users/me`) | проверено |
 | RBAC-зависимости ролей и разрешений | проверено тестами |
 | Защита от самостоятельного назначения ролей | проверено тестами |
-| Frontend: `/login`, `/register`, `/profile` | проверено в браузере |
-| Сохранение сессии после перезагрузки | проверено |
-| Backend-тесты (unit + PostgreSQL) | 6 unit + 55 integration, все зелёные |
+| Категории курсов (8 засеянных, только активные публичны) | проверено |
+| Публичный каталог: поиск, фильтры, сортировка, пагинация | проверено в браузере |
+| Публичная карточка курса (без содержимого уроков) | проверено |
+| Автор: создание, редактирование, публикация, архивация | проверено в браузере |
+| Модули и уроки с порядком, перестановкой и удалением | проверено тестами |
+| Валидация публикации с перечнем недостающих полей | проверено |
+| Защита от IDOR (чужые черновики → 404) | проверено тестами |
+| CLI назначения роли `course_author` | проверено |
+| Frontend: каталог, карточка, панель автора, редактор | проверено в браузере |
+| Backend-тесты (unit + PostgreSQL) | 6 unit + 88 integration, все зелёные |
 | Production-сборка frontend и TypeScript | проверено |
 | Документация | обновлена |
 
@@ -50,30 +59,39 @@ education-platform/
 │   ├── src/
 │   │   ├── app/                  App, AppLayout, стили оболочки
 │   │   ├── assets/               изображения/иконки
-│   │   ├── auth/                 AuthProvider, ProtectedRoute
-│   │   ├── components/           ConnectionStatus
+│   │   ├── auth/                 AuthProvider, ProtectedRoute, RequirePermission
+│   │   ├── components/           ConnectionStatus, components/course/*
 │   │   ├── hooks/                useBackendStatus
-│   │   ├── modules/              место для будущих доменных модулей
-│   │   ├── pages/                HomePage, LoginPage, RegisterPage, ProfilePage
-│   │   ├── services/             apiClient, authService, tokenStorage, systemService
-│   │   ├── styles/               дизайн-токены, global.css, ui.css
+│   │   ├── pages/                Home, Login, Register, Profile, Catalog,
+│   │   │                         CourseDetail, AuthorCourses, NewCourse, CourseEditor
+│   │   ├── services/             apiClient, authService, tokenStorage,
+│   │   │                         systemService, catalogService, courseService
+│   │   ├── styles/               дизайн-токены, global.css, ui.css, catalog.css, editor.css
 │   │   ├── types/                контракты API
-│   │   ├── utils/                валидация форм, сообщения об ошибках, подписи ролей
+│   │   ├── utils/                валидация, сообщения об ошибках, подписи, courseErrors
 │   │   ├── main.tsx
 │   │   └── vite-env.d.ts
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.ts
 ├── backend/                      FastAPI
-│   ├── alembic/                  env.py и ревизии 0001 (схема), 0002 (seed RBAC)
+│   ├── alembic/                  env.py и ревизии 0001–0004
+│   │   └── versions/
+│   │       ├── 0001_users_rbac.py
+│   │       ├── 0002_seed_rbac.py
+│   │       ├── 0003_courses.py    схемы категорий, курсов, модулей, уроков
+│   │       └── 0004_seed_courses.py  8 категорий + расширение RBAC
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── deps.py           SessionDep
-│   │   │   └── v1/               router, endpoints (system, auth, users)
+│   │   │   └── v1/               router, endpoints (system, auth, users,
+│   │   │                         catalog, courses)
 │   │   ├── core/                 config, database, errors, security
 │   │   ├── modules/
 │   │   │   ├── auth/             AuthService, get_current_user, require_roles/permissions
-│   │   │   └── users/            модели, RBAC-коды, репозиторий, сервис, схемы
+│   │   │   ├── users/            модели, RBAC-коды, репозиторий, сервис, схемы
+│   │   │   └── courses/          models/, schemas/, repositories/, services/, constants
+│   │   ├── cli.py                безопасное назначение ролей (assign-role и др.)
 │   │   ├── workers/              будущие фоновые задачи (пусто)
 │   │   └── main.py
 │   ├── tests/                    unit-тесты
@@ -130,7 +148,7 @@ Copy-Item .env.example .env
 | Переменная | Назначение | Пример |
 | --- | --- | --- |
 | `PROJECT_NAME` | Название приложения | `Education Platform` |
-| `PROJECT_VERSION` | Версия проекта | `0.2.0` |
+| `PROJECT_VERSION` | Версия проекта | `0.3.0` |
 | `APP_ENV` | Окружение: `local`/`test`/`staging`/`production` | `local` |
 | `DEBUG` | SQL echo и подробные логи | `false` |
 | `LOG_LEVEL` | Уровень логирования | `INFO` |
@@ -218,8 +236,9 @@ cd D:\education-platform\backend
 ```
 
 `create_all()` в рабочем приложении не используется: схема создаётся только
-миграциями. Ревизия `0002_seed_rbac` идемпотентно создаёт системные роли и
-разрешения (`ON CONFLICT DO NOTHING`) и не удаляет существующие данные.
+миграциями. Ревизии `0002_seed_rbac` и `0004_seed_courses` идемпотентно создают
+системные роли, разрешения и категории (`ON CONFLICT DO NOTHING`) и не удаляют
+существующие данные. Текущая ревизия — `0004_seed_courses`.
 
 ## Запуск Backend
 
@@ -273,6 +292,11 @@ npm run preview
 | `/login` | Вход | неавторизованным |
 | `/register` | Регистрация | неавторизованным |
 | `/profile` | Личный профиль | только авторизованным |
+| `/catalog` | Публичный каталог курсов | всем |
+| `/catalog/:slug` | Публичная страница курса | всем (только опубликованные) |
+| `/author` | Мои курсы | `courses:read` |
+| `/author/new` | Создание курса | `courses:create` |
+| `/author/courses/:id` | Редактор курса | `courses:update` |
 
 > Если PowerShell выдаёт `npm.ps1 cannot be loaded because running scripts is
 > disabled`, используйте `npm.cmd` вместо `npm`.
@@ -291,6 +315,19 @@ npm run preview
 | GET | `/api/v1/auth/me/permissions` | Роли и разрешения текущего пользователя |
 | GET | `/api/v1/users/me` | Свой профиль (требует `profile:read`) |
 | PATCH | `/api/v1/users/me` | Изменение имени (требует `profile:update`) |
+| GET | `/api/v1/catalog/categories` | Список активных категорий |
+| GET | `/api/v1/catalog/courses` | Каталог: поиск, фильтры, пагинация |
+| GET | `/api/v1/catalog/courses/{slug}` | Публичная карточка курса |
+| GET | `/api/v1/courses/mine` | Свои курсы, включая черновики |
+| POST | `/api/v1/courses` | Создание черновика |
+| GET | `/api/v1/courses/{id}` | Курс для редактирования |
+| PATCH | `/api/v1/courses/{id}` | Обновление полей курса |
+| POST | `/api/v1/courses/{id}/publish` | Публикация (проверка структуры) |
+| POST | `/api/v1/courses/{id}/unpublish` | Возврат в черновики |
+| POST | `/api/v1/courses/{id}/archive` | Архивация |
+| DELETE | `/api/v1/courses/{id}` | Удаление курса |
+| POST/GET/PATCH/DELETE | `/api/v1/courses/{id}/modules...` | Управление модулями |
+| POST/PATCH/DELETE | `/api/v1/courses/{id}/modules/{mid}/lessons...` | Управление уроками |
 
 Полное описание схем, кодов ошибок и примеров — в [`docs/api.md`](docs/api.md).
 
@@ -312,6 +349,23 @@ npm run preview
 
 При регистрации сервер назначает только роль `user`. Публичного API назначения
 ролей нет; поля `roles`, `permissions`, `is_active` в формах отклоняются с `422`.
+Роль `course_author` назначается только из CLI (см. ниже). Коды разрешений
+курсов используют множественное число: `courses:read`, `courses:create`,
+`courses:update`, `courses:publish`, `courses:delete`, `courses:manage_all` —
+это осознанное
+отклонение от единственного числа в ТЗ.
+
+### Назначение роли `course_author`
+
+```powershell
+cd D:\education-platform\backend
+.\.venv\Scripts\python.exe -m app.cli assign-role --email author@example.com --role course_author
+.\.venv\Scripts\python.exe -m app.cli list-roles --email author@example.com
+.\.venv\Scripts\python.exe -m app.cli remove-role --email author@example.com --role course_author
+```
+
+Команда отказывается назначать `guest`; роль `user` уже выдаётся при регистрации.
+Публичного эндпоинта назначения ролей нет (Sprint 8).
 
 ## Тесты
 
@@ -327,13 +381,14 @@ cd D:\education-platform\backend
 
 Integration-тесты используют отдельную базу `education_platform_test` (переопределяется
 переменной `TEST_POSTGRES_DB`). База создаётся и мигрируется автоматически, между
-тестами таблицы пользователей очищаются. SQLite не используется.
+тестами очищаются `lessons`, `course_modules`, `courses`, `user_roles`, `users`.
+SQLite не используется.
 
-Фактический прогон Sprint 1 (2026-11-19):
+Фактический прогон Sprint 2 (2026-11-19):
 
 ```
-pytest                     -> 6 passed
-pytest -m integration      -> 55 passed
+pytest                     -> 6 passed, 88 deselected
+pytest -m integration      -> 88 passed, 6 deselected
 npm run typecheck          -> ok
 npm run build              -> ok
 ```
@@ -349,6 +404,11 @@ npm run build              -> ok
   подписи, срока действия, issuer и типа токена.
 - Все проверки ролей и разрешений выполняются на backend через переиспользуемые
   зависимости FastAPI.
+- Автор может читать и изменять только свои курсы; доступ к чужому черновику
+  возвращает `404 course_not_found` (не `403`). Администратор обходит проверку
+  владельца через `courses:manage_all`.
+- Клиент не может задать `author_id`, `status`, `published_at` или `slug`:
+  Pydantic-схемы отклоняют эти поля с `422`, значения вычисляет сервер.
 - Frontend не является средством защиты: он лишь скрывает элементы и
   перенаправляет неавторизованных пользователей.
 
@@ -363,17 +423,23 @@ npm run build              -> ok
 
 ## Git
 
-История Sprint 0 не переписывалась. Sprint 1 оформлен логическими коммитами
-(backend, frontend, docs). `.gitignore` исключает `node_modules`, виртуальные
-окружения Python, `__pycache__`, `.env`, логи, кеши, сборки и временные файлы.
+История Sprint 0 не переписывалась. Sprint 1 и Sprint 2 оформлены логическими
+коммитами (backend, tests, frontend, docs). `.gitignore` исключает `node_modules`,
+виртуальные окружения Python, `__pycache__`, `.env`, логи, кеши, сборки и
+временные файлы. Секреты и `.env` в репозиторий не попадают.
 
-## Известные ограничения Sprint 1
+## Известные ограничения Sprint 2
 
 - JWT нельзя отозвать до истечения срока (нет denylist/refresh-токенов).
 - Нет административного API и панели управления ролями — роли назначаются
-  внутренними средствами/миграциями.
-- Нет подтверждения email и восстановления пароля.
-- Нет rate limiting и блокировки после неудачных попыток входа.
+  через CLI `app.cli` (Sprint 8).
+- Нет подтверждения email, восстановления пароля и rate limiting.
+- Нет загрузки обложек и содержимого уроков: `cover_image_url` — только ссылка,
+  `content` — только Markdown-текст (файлы/видео появятся позже).
+- Публичная карточка курса показывает структуру (названия модулей и уроков), но
+  не содержимое уроков — доступа к материалам нет до записи на курс (Sprint 4).
+- Сортировка каталога по названию использует колляцию PostgreSQL по умолчанию;
+  локализованная сортировка не реализована.
 - `python` из Windows Store является заглушкой — используйте `py` или
   `backend\.venv\Scripts\python.exe`.
 - Vite привязан к `127.0.0.1:5173` (не к `localhost`): подключение к `[::1]:5173`

@@ -25,23 +25,27 @@
 ┌──────────────────────────────────────────────┐
 │ Browser: React + TypeScript + Vite           │
 │  pages/ → auth/ (состояние) → services/      │
-│  React Router: /, /login, /register, /profile│
+│  Router: /, /login, /register, /profile,     │
+│          /catalog, /catalog/:slug,           │
+│          /author, /author/new, /author/...   │
 └───────────────────────┬──────────────────────┘
                         │ HTTP/JSON, Bearer JWT, CORS
 ┌───────────────────────▼──────────────────────┐
 │ FastAPI (backend/app)                        │
-│  api/v1/     — HTTP-слой: роуты, схемы       │
-│  modules/    — users (аккаунты, RBAC),       │
-│                auth (пароли, JWT, guard'ы)   │
+│  api/v1/     — HTTP-слой: system, auth,      │
+│                users, catalog, courses       │
+│  modules/    — users, auth, courses          │
 │  core/       — config, database, errors,     │
 │                security (Argon2, JWT)        │
+│  cli.py      — назначение ролей               │
 │  workers/    — фоновые задачи (пока пусто)   │
 └───────────────────────┬──────────────────────┘
                         │ SQLAlchemy 2 async + asyncpg
 ┌───────────────────────▼──────────────────────┐
 │ PostgreSQL 17 (Docker Compose, volume)       │
-│  users, roles, permissions,                  │
-│  user_roles, role_permissions                │
+│  users, roles, permissions, user_roles,      │
+│  role_permissions,                           │
+│  categories, courses, course_modules, lessons│
 └──────────────────────────────────────────────┘
 ```
 
@@ -65,10 +69,12 @@
 | `app/core/errors.py` | единый конверт ошибок, `ApiError`, обработчики исключений |
 | `app/core/security.py` | Argon2id, политика паролей, нормализация email, выпуск/проверка JWT |
 | `app/api/v1/router.py` | сборка версионированного API |
-| `app/api/v1/endpoints/*` | HTTP-эндпоинты (`system`, `auth`, `users`) |
+| `app/api/v1/endpoints/*` | HTTP-эндпоинты (`system`, `auth`, `users`, `catalog`, `courses`) |
 | `app/api/deps.py` | `SessionDep` — внедрение `AsyncSession` |
 | `app/modules/users/` | модели, RBAC-коды, репозиторий, сервис, Pydantic-схемы |
 | `app/modules/auth/` | `AuthService` (проверка пароля), зависимости `get_current_user`, `require_roles`, `require_permissions` |
+| `app/modules/courses/` | домен курсов: `models/`, `schemas/`, `repositories/`, `services/`, `constants.py` |
+| `app/cli.py` | безопасное назначение/снятие ролей (`assign-role`, `remove-role`, `list-roles`, `list-users`) |
 
 Версионирование: все эндпоинты живут под `/api/v1`. При несовместимых изменениях
 появляется `/api/v2`, старый префикс сохраняется на период миграции.
@@ -164,19 +170,106 @@ users ──< user_roles >── roles ──< role_permissions >── permissi
 - Refresh-токены и серверный отзыв не реализованы в Sprint 1; это ограничение
   зафиксировано в README и `docs/api.md`.
 
-## 5. Frontend
+## 5. Каталог и курсы
+
+### Домен `courses`
+
+Модуль `app/modules/courses/` разделён на слои по тому же принципу, что и
+`users`:
+
+```
+api/v1/endpoints/catalog.py   публичные/read-only запросы (без токена)
+api/v1/endpoints/courses.py   авторский API (требует разрешений)
+        ↓
+modules/courses/services/     CatalogService, CategoryService,
+                              CourseService, StructureService;
+                              проверка владельца, транслитерация slug,
+                              валидация публикации
+        ↓
+modules/courses/repositories/ SQL: выборки каталога, CRUD курса/структуры
+        ↓
+modules/courses/models/       Category, Course, CourseModule, Lesson
+```
+
+Схемы (`schemas/`) описывают контракт и запрещают лишние поля (`extra="forbid"`),
+поэтому клиент не может передать `author_id`, `status`, `published_at` или
+`slug`. Статус и уровень хранятся как `VARCHAR` с CHECK-ограничениями
+(`status_values`, `level_values`), а не как PostgreSQL ENUM — это упрощает
+расширение значений без изменения типа колонки.
+
+### Сущности и связи
+
+```
+categories 1──< courses >──1 users (author)
+                  │
+                  └──1──< course_modules >──1──< lessons
+```
+
+- `Category`: id, name, slug (уникальный), description, is_active, timestamps;
+  8 категорий засеяны миграцией `0004_seed_courses`, публичны только активные.
+- `Course`: заголовок, slug (уникальный, неизменяемый), описания, обложка
+  (URL), level, language, status (`draft`/`published`/`archived`), author_id,
+  category_id, published_at, timestamps. Новый курс всегда создаётся как
+  `draft`; `published_at` выставляется при первой публикации и сохраняется при
+  повторных.
+- `CourseModule` и `Lesson`: позиция (`position`) начинается с 1, перестановка и
+  удаление выполняются транзакционно (двухфазная схема с отрицательными
+  позициями при
+  reorder, `ON DELETE CASCADE` + перенумерация при delete). Содержимое урока —
+  только Markdown-текст, загрузка файлов/видео не предусмотрена.
+
+### Права и изоляция
+
+| Действие | Разрешение |
+| --- | --- |
+| Просмотр каталога и публичной карточки | без токена (`guest`) |
+| Список/чтение своих курсов | `courses:read` |
+| Создание | `courses:create` |
+| Редактирование, модули, уроки | `courses:update` |
+| Публикация / возврат в черновик / архивация | `courses:publish` |
+| Удаление | `courses:delete` |
+| Обход проверки владельца (админ) | `courses:manage_all` |
+
+Обычный автор видит только свои курсы; доступ к чужому черновику или архиву
+возвращает `404 course_not_found` (не `403`) — это не раскрывает существование
+чужого курса. Администратор с `courses:manage_all` работает с любым курсом.
+Frontend повторяет проверки через `RequirePermission` только для UX;
+решающая проверка всегда на backend.
+
+### Публикация
+
+`POST /courses/{id}/publish` проверяет: название, оба описания, активную
+категорию, уровень, язык, хотя бы один модуль, хотя бы один урок, непустые
+названия и неотрицательную длительность. При ошибке возвращается `422
+course_not_ready` с `details.missing` — список символических полей, который
+frontend превращает в читаемый чеклист. Slug при публикации не меняется,
+поэтому ссылки остаются валидными.
+
+### Ключевые отклонения от ТЗ
+
+- Разрешения курсов используют множественное число (`courses:*`).
+- Публичный API живёт под `/catalog/...`, авторский — под `/courses/...`.
+- `status`/`level` — `VARCHAR` + CHECK, не ENUM.
+- Назначение `course_author` — через CLI, без публичного эндпоинта (Sprint 8).
+
+## 6. Frontend
 
 | Каталог | Назначение |
 | --- | --- |
 | `src/app/` | `App` (Router + Provider), `AppLayout` (шапка, навигация) |
-| `src/auth/` | `AuthProvider` (состояние сессии), `ProtectedRoute` |
-| `src/pages/` | `HomePage`, `LoginPage`, `RegisterPage`, `ProfilePage`, `NotFoundPage` |
-| `src/components/` | переиспользуемые UI-компоненты (`ConnectionStatus`) |
+| `src/auth/` | `AuthProvider` (состояние сессии), `ProtectedRoute`, `RequirePermission` |
+| `src/pages/` | `Home`, `Login`, `Register`, `Profile`, `Catalog`, `CourseDetail`, `AuthorCourses`, `NewCourse`, `CourseEditor`, `NotFound` |
+| `src/components/` | `ConnectionStatus`, `components/course/*` (карточка, формы, редактор структуры) |
 | `src/hooks/` | состояние и побочные эффекты (`useBackendStatus`) |
-| `src/services/` | `apiClient` (fetch, JSON, Bearer, таймауты, ошибки), `authService`, `tokenStorage`, `systemService` |
-| `src/types/` | контракты API, зеркало backend-схем |
-| `src/utils/` | валидация форм, русские сообщения об ошибках, подписи ролей |
-| `src/styles/` | `variables.css` (дизайн-токены), `global.css`, `ui.css` |
+| `src/services/` | `apiClient`, `authService`, `tokenStorage`, `systemService`, `catalogService`, `courseService` |
+| `src/types/` | контракты API, зеркало backend-схем (включая курсы) |
+| `src/utils/` | валидация форм, русские сообщения об ошибках, подписи, `courseErrors` |
+| `src/styles/` | `variables.css`, `global.css`, `ui.css`, `catalog.css`, `editor.css` |
+
+`RequirePermission` — только UX-защита: скрывает ссылки и перенаправляет, но
+не заменяет backend-проверки. `ApiError` несёт `code` и `details`, благодаря
+чему `courseErrors.ts` показывает читаемый список недостающих полей при
+неудачной публикации.
 
 ### Состояние аутентификации
 
@@ -201,37 +294,40 @@ users ──< user_roles >── roles ──< role_permissions >── permissi
 - UI различает состояния загрузки, успеха и ошибки; коды backend'а
   переводятся в понятные русские сообщения.
 
-## 6. Данные и миграции
+## 7. Данные и миграции
 
 Схема создаётся исключительно Alembic-ревизиями:
 
-- `0001_users_rbac` — таблицы, индексы, внешние ключи;
-- `0002_seed_rbac` — системные роли, разрешения и матрица `role_permissions`
-  (идемпотентно, через `ON CONFLICT DO NOTHING`).
+- `0001_users_rbac` — таблицы пользователей и RBAC, индексы, внешние ключи;
+- `0002_seed_rbac` — системные роли, разрешения и матрица `role_permissions`;
+- `0003_courses` — `categories`, `courses`, `course_modules`, `lessons`,
+  CHECK-ограничения и индексы;
+- `0004_seed_courses` — 8 категорий и расширение матрицы разрешений до 17.
 
-`alembic/env.py` использует async-движок и DSN из `Settings`; переменная
+Seed-ревизии идемпотентны (`ON CONFLICT DO NOTHING`). `alembic/env.py`
+использует async-движок и DSN из `Settings`; переменная
 `ALEMBIC_DATABASE_URL` позволяет тестам мигрировать отдельную базу. В рабочем
 коде `create_all()` не вызывается. Подробности — [`database.md`](database.md).
 
-## 7. Инфраструктура
+## 8. Инфраструктура
 
 - только PostgreSQL в Docker (`docker-compose.yml` в корне);
 - backend и frontend запускаются локально, что ускоряет цикл разработки;
 - данные БД — в именованном томе, что переживает перезапуск контейнера;
 - секреты — только через `.env`, который не попадает в Git.
 
-## 8. Что осознанно не сделано в Sprint 1
+## 9. Что осознанно не сделано в Sprint 2
 
 Refresh-токены и серверный отзыв JWT, подтверждение email, восстановление
-пароля, rate limiting, административная панель и API управления ролями, курсы,
-обучение, тесты, сертификаты, корпоративный кабинет, уведомления, Redis, Celery,
-APScheduler.
+пароля, rate limiting, административная панель и API управления ролями,
+загрузка файлов и видео, запись на курс и прогресс, тесты, сертификаты,
+корпоративный кабинет, уведомления, Redis, Celery, APScheduler.
 
-## 9. Направление развития
+## 10. Направление развития
 
 1. ~~Alembic и первые доменные модели.~~ (Sprint 1)
 2. ~~Пользователи, роли, аутентификация и авторизация.~~ (Sprint 1)
-3. Каталог и конструктор курсов.
+3. ~~Каталог и конструктор курсов.~~ (Sprint 2)
 4. Процесс обучения и прогресс.
 5. Тестирование и практические задания.
 6. Сертификация.

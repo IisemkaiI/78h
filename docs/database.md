@@ -1,11 +1,12 @@
 # База данных
 
-## 1. Состояние после Sprint 1
+## 1. Состояние после Sprint 2
 
 PostgreSQL 17 работает в Docker Compose. Схема создаётся и версионируется
-Alembic-миграциями; `create_all()` в приложении не используется.
+Alembic-миграциями; `create_all()` в приложении не используется. Текущая
+ревизия — `0004_seed_courses`.
 
-Таблицы Sprint 1:
+Таблицы:
 
 | Таблица | Назначение |
 | --- | --- |
@@ -14,9 +15,13 @@ Alembic-миграциями; `create_all()` в приложении не исп
 | `permissions` | атомарные разрешения (`profile:read`, `courses:create`, ...) |
 | `user_roles` | связь многие-ко-многим пользователь ↔ роль |
 | `role_permissions` | связь многие-ко-многим роль ↔ разрешение |
+| `categories` | категории курсов (8 засеянных) |
+| `courses` | курсы: метаданные, статус, автор, категория |
+| `course_modules` | модули курса с позицией |
+| `lessons` | уроки модуля с позицией и Markdown-текстом |
 | `alembic_version` | текущая ревизия схемы |
 
-Таблиц курсов, обучения, тестирования, сертификации и организаций пока нет.
+Таблиц обучения, тестирования, сертификации и организаций пока нет.
 
 ## 2. Параметры подключения
 
@@ -102,11 +107,15 @@ role_permissions(role_id → roles.id ON DELETE CASCADE,
 | --- | --- |
 | `guest` | 0 |
 | `user` | 5 |
-| `course_author` | 7 |
+| `course_author` | 8 |
 | `teacher` | 5 |
 | `organization_employee` | 5 |
 | `organization_manager` | 8 |
-| `admin` | 15 |
+| `admin` | 17 |
+
+Всего 17 уникальных разрешений. Sprint 2 добавил `courses:delete` и
+`courses:manage_all`, а `course_author` получил `courses:create`,
+`courses:update`, `courses:publish` и `courses:delete`.
 
 Разрешения сгруппированы по будущим модулям: `profile:*`, `courses:*`,
 `learning:*`, `teaching:*`, `organization:*`, `admin:*`. Матрица ролей
@@ -117,7 +126,69 @@ role_permissions(role_id → roles.id ON DELETE CASCADE,
 существует для полноты модели, не имеет разрешений и никогда не назначается
 записи в `users`.
 
-## 5. Миграции
+## 5. Курсы и категории
+
+### `categories`
+
+| Колонка | Тип | Ограничения |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `name` | `varchar(120)` | NOT NULL |
+| `slug` | `varchar(120)` | NOT NULL, UNIQUE (`uq_categories_slug`), индекс `ix_categories_slug` |
+| `description` | `varchar(1000)` | NULL |
+| `is_active` | `boolean` | NOT NULL, default `true` |
+| `created_at`, `updated_at` | `timestamptz` | NOT NULL, default `now()` |
+
+Только активные категории видны в публичном API. 8 категорий засеяны
+идемпотентно ревизией `0004_seed_courses`.
+
+### `courses`
+
+| Колонка | Тип | Ограничения |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `title` | `varchar(200)` | NOT NULL |
+| `slug` | `varchar(220)` | NOT NULL, UNIQUE (`uq_courses_slug`), индекс `ix_courses_slug` |
+| `short_description` | `varchar(300)` | NOT NULL |
+| `description` | `text` | NOT NULL |
+| `cover_image_url` | `varchar(500)` | NULL |
+| `level` | `varchar(20)` | NOT NULL, CHECK `ck_courses_level_values` (`beginner`, `intermediate`, `advanced`) |
+| `language` | `varchar(10)` | NOT NULL |
+| `status` | `varchar(20)` | NOT NULL, default `draft`, CHECK `ck_courses_status_values` (`draft`, `published`, `archived`) |
+| `author_id` | `uuid` | FK → `users.id` ON DELETE CASCADE, индекс `ix_courses_author_id` |
+| `category_id` | `uuid` | FK → `categories.id`, индекс `ix_courses_category_id` |
+| `published_at` | `timestamptz` | NULL |
+| `created_at`, `updated_at` | `timestamptz` | NOT NULL, default `now()` |
+
+Slug генерируется из заголовка (включая транслитерацию кириллицы) с
+числовым суффиксом при коллизии и никогда не изменяется. `published_at`
+устанавливается при первом переходе в `published` и сохраняется при
+повторных публикациях.
+
+### `course_modules` и `lessons`
+
+| Колонка | Тип | Ограничения |
+| --- | --- | --- |
+| `course_modules.id` | `uuid` | PK |
+| `course_modules.course_id` | `uuid` | FK → `courses.id` ON DELETE CASCADE, индекс |
+| `course_modules.title` | `varchar(200)` | NOT NULL |
+| `course_modules.description` | `varchar(2000)` | NULL |
+| `course_modules.position` | `integer` | NOT NULL |
+| `lessons.id` | `uuid` | PK |
+| `lessons.module_id` | `uuid` | FK → `course_modules.id` ON DELETE CASCADE, индекс |
+| `lessons.title` | `varchar(200)` | NOT NULL |
+| `lessons.description` | `varchar(2000)` | NULL |
+| `lessons.content` | `text` | NOT NULL (Markdown) |
+| `lessons.position` | `integer` | NOT NULL |
+| `lessons.estimated_duration_minutes` | `integer` | NOT NULL, default 0, CHECK `ck_lessons_estimated_duration_minutes_non_negative` |
+
+Уникального ограничения на `position` нет: перестановка выполняется
+транзакционно (временно отрицательные позиции, затем 1..n), а удаление
+элемента перенумеровывает остальные в той же транзакции. Каскадное удаление
+на уровне БД (`ON DELETE CASCADE` + `passive_deletes=True` в ORM) гарантирует,
+что не останется «сирот».
+
+## 6. Миграции
 
 Файлы:
 
@@ -126,6 +197,8 @@ backend/alembic.ini
 backend/alembic/env.py                 async-движок, DSN из Settings
 backend/alembic/versions/0001_users_rbac.py
 backend/alembic/versions/0002_seed_rbac.py
+backend/alembic/versions/0003_courses.py
+backend/alembic/versions/0004_seed_courses.py
 ```
 
 Команды (из `backend/`):
@@ -146,7 +219,7 @@ backend/alembic/versions/0002_seed_rbac.py
 - тест `test_orm_metadata_matches_migrations` проверяет отсутствие расхождений
   между моделями SQLAlchemy и фактической схемой.
 
-## 6. Docker Compose
+## 7. Docker Compose
 
 ```yaml
 services:
@@ -171,7 +244,7 @@ services:
 
 Проверено: `docker compose ps` → `Up ... (healthy)`, PostgreSQL 17.12.
 
-## 7. Подключение из приложения
+## 8. Подключение из приложения
 
 `app/core/database.py`:
 
@@ -197,7 +270,7 @@ SessionFactory = async_sessionmaker(engine, expire_on_commit=False, autoflush=Fa
 Eager-loading ролей и разрешений (`selectinload`) исключает неявные SQL-запросы
 из async-контекста.
 
-## 8. Проверка готовности
+## 9. Проверка готовности
 
 `ping_database()` выполняет `SELECT 1` с ограничением `DB_READY_TIMEOUT` (3 с):
 
@@ -207,7 +280,7 @@ Eager-loading ролей и разрешений (`selectinload`) исключа
   `database.status = "unavailable"`, `detail` — короткая категория проблемы
   (например, `ConnectionRefusedError`) без хостов, логинов и паролей.
 
-## 9. Тестовая база
+## 10. Тестовая база
 
 Integration-тесты используют отдельную базу `education_platform_test`
 (переопределяется `TEST_POSTGRES_DB`). `tests/integration/conftest.py`:
@@ -215,12 +288,13 @@ Integration-тесты используют отдельную базу `educati
 1. создаёт базу, если её нет (через asyncpg и служебную БД `postgres`);
 2. применяет `alembic upgrade head` с `ALEMBIC_DATABASE_URL`;
 3. создаёт async-движок с `NullPool`;
-4. очищает `user_roles` и `users` перед каждым тестом (`TRUNCATE ... CASCADE`),
-   сохраняя засеянные роли и разрешения.
+4. очищает `lessons`, `course_modules`, `courses`, `user_roles` и `users`
+   перед каждым тестом (`TRUNCATE ... CASCADE`), сохраняя засеянные роли,
+   разрешения и категории.
 
 SQLite не используется: тесты проверяют настоящее поведение PostgreSQL.
 
-## 10. Проверка вручную
+## 11. Проверка вручную
 
 ```powershell
 cd D:\education-platform
@@ -244,7 +318,7 @@ docker exec education-platform-postgres psql -U edu_platform -d education_platfo
 
 Сохранение после перезапуска контейнера проверяется `docker compose restart postgres`.
 
-## 11. Диагностика
+## 12. Диагностика
 
 | Симптом | Причина | Решение |
 | --- | --- | --- |
@@ -253,6 +327,8 @@ docker exec education-platform-postgres psql -U edu_platform -d education_platfo
 | `password authentication failed` | `.env` изменён после создания контейнера | пересоздать том (удалит данные) или вернуть пароль |
 | `relation "users" does not exist` | миграции не применены | `alembic upgrade head` |
 | `Role 'user' is missing from the database` (500) | seed-миграция не применена | `alembic upgrade head` |
+| `duplicate key value violates unique constraint "uq_courses_slug"` | одинаковые заголовки у курсов одного автора | slug получает числовой суффикс автоматически |
+| `new row violates check constraint "ck_courses_status_values"` | клиент передал неверный статус | статус выставляет сервер, используйте `/publish` |
 | `JWT_SECRET must be set...` при старте | нет секрета в `.env` | сгенерировать и добавить `JWT_SECRET` |
 | порт 5432 занят | локальный PostgreSQL | изменить `POSTGRES_PORT` |
 | тесты идут в рабочую базу | не задан `TEST_POSTGRES_DB`/конфиг conftest | проверить `tests/integration/conftest.py` |

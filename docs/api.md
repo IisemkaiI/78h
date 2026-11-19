@@ -12,11 +12,14 @@
 - [Служебные эндпоинты](#служебные-эндпоинты)
 - [Аутентификация](#аутентификация)
 - [Профиль пользователя](#профиль-пользователя)
+- [Каталог (публичный)](#каталог-публичный)
+- [Курсы (авторский API)](#курсы-авторский-api)
 - [Схемы данных](#схемы-данных)
 - [Формат ошибок](#формат-ошибок)
 - [Роли и разрешения](#роли-и-разрешения)
 - [CORS](#cors)
 - [Приватность](#приватность)
+- [Примеры запросов](#примеры-запросов)
 - [Версионирование](#версионирование)
 
 ## Служебные эндпоинты
@@ -30,7 +33,7 @@
 {
   "status": "ok",
   "service": "education-platform-api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "environment": "local"
 }
 ```
@@ -45,7 +48,7 @@
 ```json
 {
   "status": "ready",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "database": { "status": "available", "detail": null, "latency_ms": 1.84 }
 }
 ```
@@ -55,7 +58,7 @@
 ```json
 {
   "status": "not_ready",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "database": {
     "status": "unavailable",
     "detail": "ConnectionRefusedError",
@@ -72,7 +75,7 @@
 ```json
 {
   "application": "Education Platform",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "environment": "local",
   "api_version": "/api/v1"
 }
@@ -219,6 +222,185 @@ JWT — stateless: сервер не может отозвать уже выда
 | 403 | `insufficient_permissions` | у пользователя нет `profile:update` |
 | 422 | `validation_error` | имя короче 2 или длиннее 120 символов; переданы `email`, `roles`, `is_active`, `permissions` |
 
+## Каталог (публичный)
+
+Эндпоинты каталога не требуют токена. Неавторизованный посетитель видит только
+опубликованные курсы в активных категориях.
+
+### GET /api/v1/catalog/categories
+
+Список активных категорий. Тело ответа — массив `Category`.
+
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Программирование",
+    "slug": "programming",
+    "description": null,
+    "is_active": true,
+    "created_at": "2026-11-19T14:00:00Z",
+    "updated_at": "2026-11-19T14:00:00Z"
+  }
+]
+```
+
+### GET /api/v1/catalog/courses
+
+Список опубликованных курсов с поиском, фильтрами и пагинацией.
+
+| Параметр | Тип | По умолчанию | Описание |
+| --- | --- | --- | --- |
+| `search` | string | — | `ILIKE` по названию и краткому описанию |
+| `category` | string | — | slug категории |
+| `level` | string | — | `beginner`, `intermediate`, `advanced` |
+| `language` | string | — | точное совпадение, регистронезависимо |
+| `sort` | string | `newest` | `newest`, `oldest`, `title` |
+| `page` | integer | `1` | номер страницы, ≥1 |
+| `page_size` | integer | `12` | размер страницы, 1–48 |
+
+**Ответ 200** — `Paginated<CatalogCourse>`:
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "title": "Python с нуля",
+      "slug": "python-s-nulya",
+      "short_description": "Короткое описание",
+      "cover_image_url": null,
+      "level": "beginner",
+      "language": "ru",
+      "category": { "id": "uuid", "name": "Программирование", "slug": "programming" },
+      "author": { "id": "uuid", "display_name": "Иван Петров" },
+      "published_at": "2026-11-19T14:00:00Z",
+      "modules_count": 2,
+      "lessons_count": 7,
+      "total_duration_minutes": 95
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 12,
+  "pages": 1
+}
+```
+
+Черновики, архивные курсы и курсы из отключённых категорий в выборку не
+попадают.
+
+### GET /api/v1/catalog/courses/{slug}
+
+Публичная карточка курса. Ответ — `CatalogCourseDetail`: те же поля, что у
+`CatalogCourse`, плюс `description` и `modules` (массив `ModulePreview`).
+
+`ModulePreview` содержит `id`, `title`, `description`, `position` и `lessons`
+со списком `LessonPreview` (`id`, `title`, `description`, `position`,
+`estimated_duration_minutes`). **Поле `content` намеренно не возвращается**:
+материалы уроков станут доступны после записи на курс (Sprint 4).
+
+**Ошибки:** `404 course_not_found` — курс не опубликован, archived, в
+неактивной категории или не существует.
+
+## Курсы (авторский API)
+
+Все эндпоинты требуют Bearer-токен и соответствующее разрешение. Автор видит
+только свои курсы; администратор (`courses:manage_all`) — любые. Чужой
+черновик возвращает `404 course_not_found`.
+
+### GET /api/v1/courses/mine
+
+Свои курсы, включая черновики и архив. Параметры `page` (≥1) и `page_size`
+(1–48). Ответ — `Paginated<CourseSummary>`. Требует `courses:read`.
+
+### POST /api/v1/courses
+
+Создаёт черновик. Требует `courses:create`.
+
+**Запрос**
+
+```json
+{
+  "title": "Python с нуля",
+  "short_description": "Короткое описание",
+  "description": "Полное описание курса",
+  "cover_image_url": null,
+  "level": "beginner",
+  "language": "ru",
+  "category_id": "uuid"
+}
+```
+
+`author_id`, `status`, `published_at`, `slug` в теле запрещены (`422`). Ответ
+`201` — `CourseDetail` со статусом `draft`.
+
+**Ошибки:** `404 category_not_found`, `404 category_inactive`,
+`422 validation_error`.
+
+### GET /api/v1/courses/{id}
+
+Курс для редактирования, включая modules/lessons с содержимым. Требует
+`courses:read`. Ответ — `CourseDetail`.
+
+### PATCH /api/v1/courses/{id}
+
+Частичное обновление полей курса. Требует `courses:update`. Slug не меняется.
+Ответ — обновлённый `CourseDetail`.
+
+### POST /api/v1/courses/{id}/publish
+
+Публикует курс. Требует `courses:publish`. Проверяет наличие заголовка, обоих
+описаний, активной категории, уровня, языка, хотя бы одного модуля и урока,
+непустых названий и неотрицательной длительности.
+
+**Ответ 200** — `CourseDetail` со статусом `published` и заполненным
+`published_at`.
+
+**Ошибка 422 `course_not_ready`:**
+
+```json
+{
+  "error": {
+    "code": "course_not_ready",
+    "message": "Course is not ready to be published",
+    "details": { "missing": ["modules", "module_1_lesson_1_title"] }
+  }
+}
+```
+
+### POST /api/v1/courses/{id}/unpublish
+
+Возвращает опубликованный или архивный курс в `draft`. Требует
+`courses:publish`. `published_at` сохраняется.
+
+### POST /api/v1/courses/{id}/archive
+
+Переводит курс в `archived` (скрыт из каталога, данные сохранены). Требует
+`courses:publish`.
+
+### DELETE /api/v1/courses/{id}
+
+Физически удаляет курс вместе с модулями и уроками. Требует `courses:delete`.
+Ответ `204`.
+
+### Модули и уроки
+
+| Метод | Путь | Назначение |
+| --- | --- | --- |
+| POST | `/courses/{id}/modules` | Создать модуль: `title`, `description` |
+| PATCH | `/courses/{id}/modules/{mid}` | Обновить модуль |
+| DELETE | `/courses/{id}/modules/{mid}` | Удалить модуль с уроками |
+| POST | `/courses/{id}/modules/reorder` | Перестановка модулей: `ordered_ids` |
+| POST | `/courses/{id}/modules/{mid}/lessons` | Создать урок: `title`, `description`, `content`, `estimated_duration_minutes` |
+| PATCH | `/courses/{id}/modules/{mid}/lessons/{lid}` | Обновить урок |
+| DELETE | `/courses/{id}/modules/{mid}/lessons/{lid}` | Удалить урок |
+| POST | `/courses/{id}/modules/{mid}/lessons/reorder` | Перестановка уроков: `ordered_ids` |
+
+Все операции над структурой требуют `courses:update` и проверяют цепочку
+`урок → модуль → курс → автор`. Пустое название и отрицательная длительность
+отклоняются с `422`. Неверный `ordered_ids` → `422 invalid_order`.
+
 ## Схемы данных
 
 ### UserProfile
@@ -279,10 +461,16 @@ JWT payload: `sub` (UUID пользователя), `type` (`access`), `iss`, `i
 | 403 | `insufficient_roles` | нет ни одной из требуемых ролей |
 | 403 | `insufficient_permissions` | нет одного или нескольких разрешений; список в `details.missing` |
 | 404 | `not_found` | маршрут не существует |
+| 404 | `course_not_found` | курс/модуль/урок не найден или недоступен этому пользователю |
+| 404 | `category_not_found` | категория не существует |
+| 404 | `module_not_found`, `lesson_not_found` | элемент структуры не найден в этом курсе |
 | 405 | `method_not_allowed` | метод не поддержан |
 | 409 | `conflict` | общий конфликт |
 | 409 | `email_already_registered` | повторная регистрация |
 | 422 | `validation_error` | не прошла валидация; список полей в `details` |
+| 422 | `course_not_ready` | публикация: не хватает данных; `details.missing` |
+| 422 | `invalid_order` | перестановка: неверный набор/порядок ID |
+| 422 | `category_inactive` | выбрана отключённая категория |
 | 429 | `too_many_requests` | превышен лимит (задел) |
 | 500 | `internal_error` | непойманное исключение; подробности только в логе |
 | 500 | `rbac_not_initialized` | отсутствуют системные роли |
@@ -314,14 +502,16 @@ JWT payload: `sub` (UUID пользователя), `type` (`access`), `iss`, `i
 | --- | --- |
 | `guest` | — |
 | `user` | `profile:read`, `profile:update`, `courses:read`, `learning:enroll`, `learning:participate` |
-| `course_author` | `profile:*`, `courses:read`, `courses:create`, `courses:update`, `courses:publish`, `learning:participate` |
+| `course_author` | `profile:*`, `courses:read`, `courses:create`, `courses:update`, `courses:publish`, `courses:delete`, `learning:participate` (8) |
 | `teacher` | `profile:*`, `courses:read`, `learning:participate`, `teaching:manage` |
 | `organization_employee` | `profile:*`, `courses:read`, `learning:enroll`, `learning:participate` |
 | `organization_manager` | `profile:*`, `courses:read`, `learning:enroll`, `learning:participate`, `organization:view_members`, `organization:manage_members`, `organization:view_reports` |
-| `admin` | все 15 разрешений |
+| `admin` | все 17 разрешений, включая `courses:manage_all` |
 
 Несколько ролей объединяются: пользователь получает объединение разрешений.
-`guest` не назначается аккаунтам. Публичного API назначения ролей нет.
+`guest` не назначается аккаунтам. Публичного API назначения ролей нет;
+`course_author` назначается через CLI `python -m app.cli assign-role`.
+Всего в системе 17 уникальных разрешений.
 
 ## CORS
 
@@ -342,6 +532,8 @@ http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0
 проверяется тестами `test_health_exposes_no_connection_details`,
 `test_info_does_not_leak_credentials` и
 `tests/integration/test_auth_api.py::test_register_response_never_exposes_password_material`.
+Публичная карточка курса не раскрывает `content` уроков, а авторский API —
+чужие черновики (404 вместо данных).
 
 ## Примеры запросов
 
@@ -367,6 +559,24 @@ Invoke-RestMethod -Method Patch -Uri "$base/users/me" -Headers $headers `
 
 # выход
 Invoke-WebRequest -Method Post -Uri "$base/auth/logout" -Headers $headers -UseBasicParsing
+
+# публичный каталог (без токена)
+Invoke-RestMethod -Uri "$base/catalog/courses?level=beginner&page=1&page_size=12"
+
+# создание черновика (нужна роль course_author)
+$draft = Invoke-RestMethod -Method Post -Uri "$base/courses" -Headers $headers `
+  -ContentType "application/json" -Body (@{
+    title = "Python с нуля"
+    short_description = "Короткое описание"
+    description = "Полное описание курса"
+    cover_image_url = $null
+    level = "beginner"
+    language = "ru"
+    category_id = "<uuid категории>"
+  } | ConvertTo-Json)
+
+# публикация
+Invoke-RestMethod -Method Post -Uri "$base/courses/$($draft.id)/publish" -Headers $headers
 ```
 
 ## Версионирование
