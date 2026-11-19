@@ -39,11 +39,14 @@ class PermissionCode:
     PROFILE_READ: Final[str] = "profile:read"
     PROFILE_UPDATE: Final[str] = "profile:update"
 
-    # Catalog & authors (Sprint 3+)
+    # Catalog & authoring (Sprint 2)
     COURSES_READ: Final[str] = "courses:read"
     COURSES_CREATE: Final[str] = "courses:create"
     COURSES_UPDATE: Final[str] = "courses:update"
+    COURSES_DELETE: Final[str] = "courses:delete"
     COURSES_PUBLISH: Final[str] = "courses:publish"
+    # Administrators manage every course, including drafts of other authors.
+    COURSES_MANAGE_ALL: Final[str] = "courses:manage_all"
 
     # Learning & teaching (Sprint 5+)
     LEARNING_ENROLL: Final[str] = "learning:enroll"
