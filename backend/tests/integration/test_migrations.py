@@ -10,7 +10,8 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-import app.modules.users.models  # noqa: F401  (registers metadata for the diff check)
+import app.modules.courses.models  # noqa: F401  (registers course metadata)
+import app.modules.users.models  # noqa: F401  (registers user metadata)
 from app.core.database import Base
 from app.modules.users.rbac import RoleCode
 from tests.integration.conftest import BACKEND_DIR
@@ -47,6 +48,10 @@ async def test_expected_tables_exist(session_factory: async_sessionmaker[AsyncSe
         "permissions",
         "user_roles",
         "role_permissions",
+        "categories",
+        "courses",
+        "course_modules",
+        "lessons",
         "alembic_version",
     } <= tables
 
@@ -99,7 +104,8 @@ async def test_role_permission_matrix_is_seeded(
         )
 
     assert counts[RoleCode.USER] == 5
-    assert counts[RoleCode.ADMIN] == 15
+    assert counts[RoleCode.ADMIN] == 17
+    assert counts[RoleCode.COURSE_AUTHOR] == 8
     assert counts[RoleCode.GUEST] == 0
     assert all(count > 0 for code, count in counts.items() if code != RoleCode.GUEST)
 
@@ -117,3 +123,51 @@ async def test_orm_metadata_matches_migrations(test_engine) -> None:
         )
 
     assert diffs == []
+
+
+async def test_course_categories_are_seeded(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        rows = (
+            await session.execute(
+                text("SELECT slug, is_active FROM categories ORDER BY slug")
+            )
+        ).all()
+
+    slugs = [row[0] for row in rows]
+    assert slugs == [
+        "business-management",
+        "data-analytics",
+        "design",
+        "foreign-languages",
+        "game-development",
+        "information-technology",
+        "programming",
+        "web-development",
+    ]
+    assert all(row[1] is True for row in rows)
+
+
+async def test_course_check_constraints_exist(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        names = set(
+            await session.scalars(
+                text(
+                    "SELECT conname FROM pg_constraint "
+                    "WHERE conname IN ("
+                    "'ck_courses_status_values', "
+                    "'ck_courses_level_values', "
+                    "'ck_lessons_estimated_duration_minutes_non_negative'"
+                    ")"
+                )
+            )
+        )
+
+    assert names == {
+        "ck_courses_status_values",
+        "ck_courses_level_values",
+        "ck_lessons_estimated_duration_minutes_non_negative",
+    }

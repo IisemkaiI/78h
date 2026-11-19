@@ -93,9 +93,13 @@ def session_factory(test_engine) -> async_sessionmaker[AsyncSession]:
 
 @pytest.fixture(autouse=True)
 async def clean_database(session_factory: async_sessionmaker[AsyncSession]) -> AsyncIterator[None]:
-    """Start every test from an empty user table; roles/permissions stay seeded."""
+    """Start every test from empty user/course tables; RBAC and categories stay seeded."""
     async with session_factory() as session:
-        await session.execute(text("TRUNCATE TABLE user_roles, users CASCADE"))
+        await session.execute(
+            text(
+                "TRUNCATE TABLE lessons, course_modules, courses, user_roles, users CASCADE"
+            )
+        )
         await session.commit()
     yield
 
