@@ -1,32 +1,36 @@
-import logoUrl from '../assets/logo.svg';
-import { ConnectionStatus } from '../components/ConnectionStatus/ConnectionStatus';
-import { useBackendStatus } from '../hooks/useBackendStatus';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+
+import { AuthProvider } from '../auth/AuthContext';
+import { ProtectedRoute } from '../auth/ProtectedRoute';
+import { AppLayout } from './AppLayout';
+import { HomePage } from '../pages/HomePage';
+import { LoginPage } from '../pages/LoginPage';
+import { NotFoundPage } from '../pages/NotFoundPage';
+import { ProfilePage } from '../pages/ProfilePage';
+import { RegisterPage } from '../pages/RegisterPage';
 import './App.css';
 
 export function App() {
-  const { state, refresh } = useBackendStatus();
-
   return (
-    <main className="app">
-      <div className="app__inner">
-        <header className="app__header">
-          <img className="app__logo" src={logoUrl} alt="" width={48} height={48} />
-          <p className="app__kicker">Sprint 0 · Project Foundation</p>
-          <h1 className="app__title">Education Platform</h1>
-          <p className="app__subtitle">
-            Технический фундамент платформы: React-клиент, FastAPI и подключение к PostgreSQL.
-            Функциональные модули появятся в следующих спринтах.
-          </p>
-        </header>
-
-        <ConnectionStatus {...state} onRefresh={refresh} />
-
-        <footer className="app__footer">
-          <span>Frontend: React + TypeScript + Vite</span>
-          <span>Backend: FastAPI + SQLAlchemy 2</span>
-          <span>Database: PostgreSQL (Docker Compose)</span>
-        </footer>
-      </div>
-    </main>
+    <AuthProvider>
+      <BrowserRouter>
+        <AppLayout>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </AppLayout>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

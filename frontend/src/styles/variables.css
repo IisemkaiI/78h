@@ -7,28 +7,29 @@
   color-scheme: dark;
 
   /* --- Surfaces --- */
-  --color-bg: #0b0d12;
-  --color-bg-elevated: #12151c;
-  --color-surface: #171b24;
-  --color-surface-hover: #1e232e;
-  --color-border: #262c38;
-  --color-border-strong: #343c4b;
+  --color-bg: #101116;
+  --color-bg-elevated: #191b24;
+  --color-surface: #191b24;
+  --color-surface-hover: #222532;
+  --color-card: #222532;
+  --color-border: #262a38;
+  --color-border-strong: #343a4d;
 
   /* --- Text --- */
-  --color-text: #e8ecf3;
-  --color-text-muted: #9aa5b6;
-  --color-text-faint: #6b7686;
+  --color-text: #edeff7;
+  --color-text-muted: #a0a7bc;
+  --color-text-faint: #6f778c;
 
   /* --- Brand / accent --- */
-  --color-primary: #5b8cff;
-  --color-primary-strong: #3f74ff;
-  --color-primary-soft: rgba(91, 140, 255, 0.14);
+  --color-primary: #8067f7;
+  --color-primary-strong: #6b52e8;
+  --color-primary-soft: rgba(128, 103, 247, 0.16);
 
   /* --- Semantic --- */
-  --color-success: #35d399;
-  --color-success-soft: rgba(53, 211, 153, 0.14);
-  --color-warning: #f5b544;
-  --color-warning-soft: rgba(245, 181, 68, 0.14);
+  --color-success: #38b889;
+  --color-success-soft: rgba(56, 184, 137, 0.14);
+  --color-warning: #e7a64a;
+  --color-warning-soft: rgba(231, 166, 74, 0.14);
   --color-danger: #ff6b6b;
   --color-danger-soft: rgba(255, 107, 107, 0.14);
   --color-neutral: #8b95a7;

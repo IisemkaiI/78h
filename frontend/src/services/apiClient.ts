@@ -4,6 +4,7 @@
  * Responsibilities:
  *  - resolve the backend base URL from the environment;
  *  - apply a request timeout;
+ *  - serialise JSON bodies and attach a bearer token when asked;
  *  - normalise failures into `ApiError` (network, timeout, HTTP, bad payload).
  */
 
@@ -38,7 +39,14 @@ export class ApiError extends Error {
   }
 }
 
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
 export interface RequestOptions {
+  method?: HttpMethod;
+  /** JSON-serialisable request body. */
+  body?: unknown;
+  /** Bearer token for authenticated endpoints. */
+  token?: string | null;
   timeoutMs?: number;
   signal?: AbortSignal;
   /** Status codes whose body should be returned instead of throwing (e.g. 503). */
@@ -61,7 +69,14 @@ function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, signal, acceptedStatusCodes = [] } = options;
+  const {
+    method = 'GET',
+    body,
+    token,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    signal,
+    acceptedStatusCodes = [],
+  } = options;
 
   const controller = new AbortController();
   const cancelOnExternalAbort = (): void => controller.abort(signal?.reason);
@@ -76,12 +91,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   const timeoutId = window.setTimeout(() => controller.abort(REQUEST_TIMEOUT_REASON), timeoutMs);
 
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   try {
     let response: Response;
     try {
       response = await fetch(`${API_BASE_URL}${path}`, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
       });
     } catch (error) {
