@@ -295,3 +295,48 @@ async def delete_category(
     async with session_factory() as session:
         await session.execute(delete(Category).where(Category.slug == slug))
         await session.commit()
+
+
+# --- Sprint 4: learning ---------------------------------------------------
+
+
+async def enroll(
+    client: AsyncClient, token: str, course_id: str
+) -> Response:
+    return await client.post(
+        "/api/v1/learning/enrollments",
+        json={"course_id": course_id},
+        headers=bearer(token),
+    )
+
+
+async def enroll_or_fail(
+    client: AsyncClient, token: str, course_id: str
+) -> dict[str, Any]:
+    response = await enroll(client, token, course_id)
+    assert response.status_code in {200, 201}, response.text
+    return response.json()
+
+
+async def set_lesson_state(
+    client: AsyncClient,
+    token: str,
+    enrollment_id: str,
+    lesson_id: str,
+    state: str,
+) -> Response:
+    return await client.put(
+        f"/api/v1/learning/enrollments/{enrollment_id}/lessons/{lesson_id}/progress",
+        json={"state": state},
+        headers=bearer(token),
+    )
+
+
+async def get_learning_course(
+    client: AsyncClient, token: str, slug: str
+) -> Response:
+    return await client.get(
+        f"/api/v1/learning/courses/{slug}",
+        headers=bearer(token),
+    )
+

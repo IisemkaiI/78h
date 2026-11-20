@@ -97,7 +97,8 @@ async def clean_database(session_factory: async_sessionmaker[AsyncSession]) -> A
     async with session_factory() as session:
         await session.execute(
             text(
-                "TRUNCATE TABLE lessons, course_modules, courses, user_roles, users CASCADE"
+                "TRUNCATE TABLE learning_events, lesson_progress, enrollments, "
+                "lessons, course_modules, courses, user_roles, users CASCADE"
             )
         )
         await session.commit()

@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import app.modules.courses.models  # noqa: F401  (registers course metadata)
+import app.modules.learning.models  # noqa: F401  (registers learning metadata)
 import app.modules.users.models  # noqa: F401  (registers user metadata)
 from app.core.database import Base
 from app.modules.users.rbac import RoleCode
@@ -52,6 +53,9 @@ async def test_expected_tables_exist(session_factory: async_sessionmaker[AsyncSe
         "courses",
         "course_modules",
         "lessons",
+        "enrollments",
+        "lesson_progress",
+        "learning_events",
         "alembic_version",
     } <= tables
 
@@ -103,9 +107,12 @@ async def test_role_permission_matrix_is_seeded(
             ).all()
         )
 
-    assert counts[RoleCode.USER] == 5
-    assert counts[RoleCode.ADMIN] == 17
-    assert counts[RoleCode.COURSE_AUTHOR] == 8
+    assert counts[RoleCode.USER] == 10
+    assert counts[RoleCode.ADMIN] == 24
+    assert counts[RoleCode.COURSE_AUTHOR] == 13
+    assert counts[RoleCode.TEACHER] == 10
+    assert counts[RoleCode.ORGANIZATION_EMPLOYEE] == 10
+    assert counts[RoleCode.ORGANIZATION_MANAGER] == 13
     assert counts[RoleCode.GUEST] == 0
     assert all(count > 0 for code, count in counts.items() if code != RoleCode.GUEST)
 
@@ -160,7 +167,10 @@ async def test_course_check_constraints_exist(
                     "WHERE conname IN ("
                     "'ck_courses_status_values', "
                     "'ck_courses_level_values', "
-                    "'ck_lessons_estimated_duration_minutes_non_negative'"
+                    "'ck_lessons_estimated_duration_minutes_non_negative', "
+                    "'ck_enrollments_status_values', "
+                    "'ck_lesson_progress_state_values', "
+                    "'ck_learning_events_event_type_values'"
                     ")"
                 )
             )
@@ -170,4 +180,73 @@ async def test_course_check_constraints_exist(
         "ck_courses_status_values",
         "ck_courses_level_values",
         "ck_lessons_estimated_duration_minutes_non_negative",
+        "ck_enrollments_status_values",
+        "ck_lesson_progress_state_values",
+        "ck_learning_events_event_type_values",
+    }
+
+
+async def test_learning_permissions_are_seeded(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    expected = {
+        "enrollments:create",
+        "enrollments:read_own",
+        "enrollments:cancel_own",
+        "enrollments:manage_all",
+        "progress:read_own",
+        "progress:update_own",
+        "progress:manage_all",
+    }
+    async with session_factory() as session:
+        codes = set(
+            await session.scalars(
+                text("SELECT code FROM permissions WHERE code LIKE 'enrollments:%' "
+                     "OR code LIKE 'progress:%'")
+            )
+        )
+        legacy = set(
+            await session.scalars(
+                text("SELECT code FROM permissions WHERE code IN "
+                     "('learning:enroll', 'learning:participate')")
+            )
+        )
+        assignments = await session.scalar(
+            text(
+                "SELECT count(*) FROM user_roles ur "
+                "JOIN roles r ON r.id = ur.role_id "
+                "WHERE r.code = 'admin'"
+            )
+        )
+
+    assert codes == expected
+    assert legacy == {"learning:enroll", "learning:participate"}
+    assert assignments == 0
+
+
+async def test_learning_foreign_keys_preserve_history(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT conname, confdeltype FROM pg_constraint "
+                    "WHERE conname IN ("
+                    "'fk_lesson_progress_lesson_id_lessons', "
+                    "'fk_learning_events_lesson_id_lessons', "
+                    "'fk_enrollments_course_id_courses'"
+                    ")"
+                )
+            )
+        ).all()
+
+    actions = {
+        name: action.decode() if isinstance(action, bytes) else action
+        for name, action in rows
+    }
+    assert actions == {
+        "fk_lesson_progress_lesson_id_lessons": "n",
+        "fk_learning_events_lesson_id_lessons": "n",
+        "fk_enrollments_course_id_courses": "r",
     }
