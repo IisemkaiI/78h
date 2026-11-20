@@ -1,10 +1,10 @@
 # База данных
 
-## 1. Состояние после Sprint 2
+## 1. Состояние после Sprint 4
 
 PostgreSQL 17 работает в Docker Compose. Схема создаётся и версионируется
 Alembic-миграциями; `create_all()` в приложении не используется. Текущая
-ревизия — `0004_seed_courses`.
+ревизия — `0005_learning`.
 
 Таблицы:
 
@@ -19,9 +19,12 @@ Alembic-миграциями; `create_all()` в приложении не исп
 | `courses` | курсы: метаданные, статус, автор, категория |
 | `course_modules` | модули курса с позицией |
 | `lessons` | уроки модуля с позицией и Markdown-текстом |
+| `enrollments` | запись пользователя на курс (одна на пару) |
+| `lesson_progress` | состояние урока и снимки удалённых уроков |
+| `learning_events` | журнал обучения: записи, старт, завершение |
 | `alembic_version` | текущая ревизия схемы |
 
-Таблиц обучения, тестирования, сертификации и организаций пока нет.
+Таблиц тестирования, сертификации и организаций пока нет.
 
 ## 2. Параметры подключения
 
@@ -106,21 +109,26 @@ role_permissions(role_id → roles.id ON DELETE CASCADE,
 | Роль | Кол-во разрешений |
 | --- | --- |
 | `guest` | 0 |
-| `user` | 5 |
-| `course_author` | 8 |
-| `teacher` | 5 |
-| `organization_employee` | 5 |
-| `organization_manager` | 8 |
-| `admin` | 17 |
+| `user` | 10 |
+| `course_author` | 13 |
+| `teacher` | 10 |
+| `organization_employee` | 10 |
+| `organization_manager` | 13 |
+| `admin` | 24 |
 
-Всего 17 уникальных разрешений. Sprint 2 добавил `courses:delete` и
+Всего 24 уникальных разрешения. Sprint 2 добавил `courses:delete` и
 `courses:manage_all`, а `course_author` получил `courses:create`,
-`courses:update`, `courses:publish` и `courses:delete`.
+`courses:update`, `courses:publish` и `courses:delete`. Sprint 4 добавил
+`enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`,
+`enrollments:manage_all`, `progress:read_own`, `progress:update_own` и
+`progress:manage_all`; первые пять из них получили все роли, кроме `guest`
+(полный набор `*:manage_all` — только `admin`).
 
-Разрешения сгруппированы по будущим модулям: `profile:*`, `courses:*`,
-`learning:*`, `teaching:*`, `organization:*`, `admin:*`. Матрица ролей
-(какая роль получает какие разрешения) зафиксирована в миграции, чтобы
-исторические ревизии оставались воспроизводимыми.
+Разрешения сгруппированы по модулям: `profile:*`, `courses:*`,
+`learning:*`, `enrollments:*`, `progress:*`, `teaching:*`, `organization:*`,
+`admin:*`. Матрица ролей зафиксирована в миграциях, чтобы исторические
+ревизии оставались воспроизводимыми. Легаси-разрешения `learning:enroll` и
+`learning:participate` не удаляются и не используются новыми проверками.
 
 `guest` — не аккаунт, а обозначение неавторизованного посетителя. Роль
 существует для полноты модели, не имеет разрешений и никогда не назначается
@@ -188,7 +196,70 @@ Slug генерируется из заголовка (включая транс
 на уровне БД (`ON DELETE CASCADE` + `passive_deletes=True` в ORM) гарантирует,
 что не останется «сирот».
 
-## 6. Миграции
+## 6. Обучение
+
+Ревизия `0005_learning` создаёт три таблицы и семь разрешений. Материализованной
+таблицы прогресса нет: `CourseProgress` вычисляется из текущей структуры курса и
+`lesson_progress`, а `enrollments.completed_at` служит производной отметкой.
+
+### `enrollments`
+
+| Колонка | Тип | Ограничения |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `user_id` | `uuid` | FK → `users.id` ON DELETE CASCADE, индекс |
+| `course_id` | `uuid` | FK → `courses.id` ON DELETE RESTRICT, индекс |
+| `status` | `varchar(20)` | NOT NULL, default `active`, CHECK `ck_enrollments_status_values` (`active`, `cancelled`) |
+| `enrolled_at` | `timestamptz` | NOT NULL, default `now()` |
+| `started_at`, `completed_at`, `cancelled_at`, `last_activity_at` | `timestamptz` | NULL |
+| `created_at`, `updated_at` | `timestamptz` | NOT NULL, default `now()` |
+
+UNIQUE (`user_id`, `course_id`) — одна строка на пару; отмена и повторная
+запись переиспользуют её. `completed_at` синхронизируется с фактическим
+прогрессом. `ON DELETE RESTRICT` защищает историю от физического удаления
+курса; сервис дополнительно отвечает `409 course_has_enrollments`.
+
+### `lesson_progress`
+
+| Колонка | Тип | Ограничения |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `enrollment_id` | `uuid` | FK → `enrollments.id` ON DELETE CASCADE |
+| `lesson_id` | `uuid` | FK → `lessons.id` ON DELETE SET NULL, NULL после удаления урока |
+| `lesson_id_original` | `uuid` | NOT NULL, неизменяемый идентификатор урока |
+| `module_id_original` | `uuid` | NOT NULL |
+| `lesson_title_snapshot`, `module_title_snapshot` | `varchar(200)` | NOT NULL, снимок на момент действия |
+| `state` | `varchar(20)` | NOT NULL, default `not_started`, CHECK `ck_lesson_progress_state_values` |
+| `started_at`, `completed_at`, `last_viewed_at` | `timestamptz` | NULL |
+| `created_at`, `updated_at` | `timestamptz` | NOT NULL, default `now()` |
+
+UNIQUE (`enrollment_id`, `lesson_id_original`) и индекс
+(`enrollment_id`, `state`). Снимки названий позволяют показать удалённый урок в
+истории.
+
+### `learning_events`
+
+| Колонка | Тип | Ограничения |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `enrollment_id` | `uuid` | FK → `enrollments.id` ON DELETE CASCADE |
+| `lesson_id` | `uuid` | FK → `lessons.id` ON DELETE SET NULL |
+| `lesson_id_original` | `uuid` | NULL |
+| `event_type` | `varchar(30)` | NOT NULL, CHECK `ck_learning_events_event_type_values` |
+| `payload` | `jsonb` | NOT NULL, default `{}` |
+| `created_at` | `timestamptz` | NOT NULL, default `now()` |
+
+Типы событий: `enrolled`, `cancelled`, `reactivated`, `started`,
+`lesson_started`, `lesson_completed`, `lesson_reopened`, `lesson_reset`,
+`course_completed`, `course_reopened`. Индексы: (`enrollment_id`,
+`created_at`) и `lesson_id`.
+
+Согласованность прогресса и структуры описана в `docs/api.md`, раздел
+«Обучение»: пересчёт выполняется после каждого изменения прогресса и структуры
+курса в той же транзакции; чтение прогресса дополнительно чинит устаревшую
+отметку под `SELECT ... FOR UPDATE`.
+
+## 7. Миграции
 
 Файлы:
 
@@ -199,6 +270,7 @@ backend/alembic/versions/0001_users_rbac.py
 backend/alembic/versions/0002_seed_rbac.py
 backend/alembic/versions/0003_courses.py
 backend/alembic/versions/0004_seed_courses.py
+backend/alembic/versions/0005_learning.py
 ```
 
 Команды (из `backend/`):
@@ -219,7 +291,7 @@ backend/alembic/versions/0004_seed_courses.py
 - тест `test_orm_metadata_matches_migrations` проверяет отсутствие расхождений
   между моделями SQLAlchemy и фактической схемой.
 
-## 7. Docker Compose
+## 8. Docker Compose
 
 ```yaml
 services:
@@ -244,7 +316,7 @@ services:
 
 Проверено: `docker compose ps` → `Up ... (healthy)`, PostgreSQL 17.12.
 
-## 8. Подключение из приложения
+## 9. Подключение из приложения
 
 `app/core/database.py`:
 
@@ -270,7 +342,7 @@ SessionFactory = async_sessionmaker(engine, expire_on_commit=False, autoflush=Fa
 Eager-loading ролей и разрешений (`selectinload`) исключает неявные SQL-запросы
 из async-контекста.
 
-## 9. Проверка готовности
+## 10. Проверка готовности
 
 `ping_database()` выполняет `SELECT 1` с ограничением `DB_READY_TIMEOUT` (3 с):
 
@@ -280,7 +352,7 @@ Eager-loading ролей и разрешений (`selectinload`) исключа
   `database.status = "unavailable"`, `detail` — короткая категория проблемы
   (например, `ConnectionRefusedError`) без хостов, логинов и паролей.
 
-## 10. Тестовая база
+## 11. Тестовая база
 
 Integration-тесты используют отдельную базу `education_platform_test`
 (переопределяется `TEST_POSTGRES_DB`). `tests/integration/conftest.py`:
@@ -288,13 +360,13 @@ Integration-тесты используют отдельную базу `educati
 1. создаёт базу, если её нет (через asyncpg и служебную БД `postgres`);
 2. применяет `alembic upgrade head` с `ALEMBIC_DATABASE_URL`;
 3. создаёт async-движок с `NullPool`;
-4. очищает `lessons`, `course_modules`, `courses`, `user_roles` и `users`
-   перед каждым тестом (`TRUNCATE ... CASCADE`), сохраняя засеянные роли,
-   разрешения и категории.
+4. очищает `learning_events`, `lesson_progress`, `enrollments`, `lessons`,
+   `course_modules`, `courses`, `user_roles` и `users` перед каждым тестом
+   (`TRUNCATE ... CASCADE`), сохраняя засеянные роли, разрешения и категории.
 
 SQLite не используется: тесты проверяют настоящее поведение PostgreSQL.
 
-## 11. Проверка вручную
+## 12. Проверка вручную
 
 ```powershell
 cd D:\education-platform
@@ -307,6 +379,15 @@ cd backend
 docker exec education-platform-postgres psql -U edu_platform -d education_platform -c "\dt"
 docker exec education-platform-postgres psql -U edu_platform -d education_platform `
   -c "select r.code, count(rp.permission_id) from roles r left join role_permissions rp on rp.role_id=r.id group by r.code order by r.code;"
+
+docker exec education-platform-postgres psql -U edu_platform -d education_platform `
+  -c "select status, count(*) from enrollments group by status;"
+
+docker exec education-platform-postgres psql -U edu_platform -d education_platform `
+  -c "select event_type, count(*) from learning_events group by event_type order by event_type;"
+
+docker exec education-platform-postgres psql -U edu_platform -d education_platform `
+  -c "select lesson_id, lesson_id_original, state from lesson_progress where lesson_id is null;"
 ```
 
 Сохранение данных после перезапуска backend:
@@ -318,7 +399,7 @@ docker exec education-platform-postgres psql -U edu_platform -d education_platfo
 
 Сохранение после перезапуска контейнера проверяется `docker compose restart postgres`.
 
-## 12. Диагностика
+## 13. Диагностика
 
 | Симптом | Причина | Решение |
 | --- | --- | --- |
@@ -329,6 +410,9 @@ docker exec education-platform-postgres psql -U edu_platform -d education_platfo
 | `Role 'user' is missing from the database` (500) | seed-миграция не применена | `alembic upgrade head` |
 | `duplicate key value violates unique constraint "uq_courses_slug"` | одинаковые заголовки у курсов одного автора | slug получает числовой суффикс автоматически |
 | `new row violates check constraint "ck_courses_status_values"` | клиент передал неверный статус | статус выставляет сервер, используйте `/publish` |
+| `new row violates check constraint "ck_lesson_progress_state_values"` | недопустимое состояние урока | используйте `not_started`, `in_progress` или `completed` |
+| `duplicate key ... uq_enrollments_user_id_course_id` | конкурентная первая запись | повторите запрос: активная запись уже создана |
+| `update or delete on table "courses" violates foreign key ... enrollments` | физическое удаление курса с записями | архивируйте курс; API отвечает `409 course_has_enrollments` |
 | `JWT_SECRET must be set...` при старте | нет секрета в `.env` | сгенерировать и добавить `JWT_SECRET` |
 | порт 5432 занят | локальный PostgreSQL | изменить `POSTGRES_PORT` |
 | тесты идут в рабочую базу | не задан `TEST_POSTGRES_DB`/конфиг conftest | проверить `tests/integration/conftest.py` |

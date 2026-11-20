@@ -14,6 +14,7 @@
 - [Профиль пользователя](#профиль-пользователя)
 - [Каталог (публичный)](#каталог-публичный)
 - [Курсы (авторский API)](#курсы-авторский-api)
+- [Обучение](#обучение)
 - [Схемы данных](#схемы-данных)
 - [Формат ошибок](#формат-ошибок)
 - [Роли и разрешения](#роли-и-разрешения)
@@ -33,7 +34,7 @@
 {
   "status": "ok",
   "service": "education-platform-api",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "environment": "local"
 }
 ```
@@ -48,7 +49,7 @@
 ```json
 {
   "status": "ready",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "database": { "status": "available", "detail": null, "latency_ms": 1.84 }
 }
 ```
@@ -58,7 +59,7 @@
 ```json
 {
   "status": "not_ready",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "database": {
     "status": "unavailable",
     "detail": "ConnectionRefusedError",
@@ -75,7 +76,7 @@
 ```json
 {
   "application": "Education Platform",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "environment": "local",
   "api_version": "/api/v1"
 }
@@ -298,7 +299,8 @@ JWT — stateless: сервер не может отозвать уже выда
 `ModulePreview` содержит `id`, `title`, `description`, `position` и `lessons`
 со списком `LessonPreview` (`id`, `title`, `description`, `position`,
 `estimated_duration_minutes`). **Поле `content` намеренно не возвращается**:
-материалы уроков станут доступны после записи на курс (Sprint 4).
+гость видит только описание и программу. Материалы уроков доступны через
+защищённый API обучения после записи на курс (см. раздел «Обучение»).
 
 **Ошибки:** `404 course_not_found` — курс не опубликован, archived, в
 неактивной категории или не существует.
@@ -382,7 +384,9 @@ JWT — stateless: сервер не может отозвать уже выда
 ### DELETE /api/v1/courses/{id}
 
 Физически удаляет курс вместе с модулями и уроками. Требует `courses:delete`.
-Ответ `204`.
+Ответ `204`. Если у курса есть хотя бы одна запись обучающегося (включая
+отменённую), удаление блокируется: `409 course_has_enrollments` — используйте
+архивацию, чтобы сохранить историю обучения.
 
 ### Модули и уроки
 
@@ -400,6 +404,108 @@ JWT — stateless: сервер не может отозвать уже выда
 Все операции над структурой требуют `courses:update` и проверяют цепочку
 `урок → модуль → курс → автор`. Пустое название и отрицательная длительность
 отклоняются с `422`. Неверный `ordered_ids` → `422 invalid_order`.
+
+## Обучение
+
+Префикс: `/api/v1/learning`. Все эндпоинты требуют Bearer-токен. Обычный
+обучающийся работает только со своими записями; администратор с
+`enrollments:manage_all` / `progress:manage_all` получает доступ ко всем
+записям. Чужая запись, как и несуществующая, возвращает `404
+enrollment_not_found`.
+
+### Запись на курс
+
+| Метод | Путь | Назначение | Разрешение |
+| --- | --- | --- | --- |
+| POST | `/enrollments` | Записаться или возобновить отменённую запись | `enrollments:create` |
+| GET | `/enrollments/mine` | Свои записи с прогрессом | `enrollments:read_own` |
+| GET | `/enrollments/by-course/{course_id}` | Статус записи по курсу | `enrollments:read_own` |
+| GET | `/enrollments` | Все записи (администратор) | `enrollments:manage_all` |
+| GET | `/enrollments/{id}` | Одна запись | `enrollments:read_own` |
+| DELETE | `/enrollments/{id}` | Отменить запись | `enrollments:cancel_own` |
+| POST | `/enrollments/{id}/start` | Идемпотентно отметить старт курса | `progress:update_own` |
+
+`POST /enrollments` принимает `{ "course_id": "uuid" }`. Новый ряд — `201`,
+возобновление ранее отменённого — `200`; в обоих случаях возвращается
+`EnrollmentRead`. Одна пара «пользователь + курс» имеет ровно одну строку,
+поэтому повторная запись не создаёт дубликат и не теряет прогресс.
+Отмена переводит строку в `cancelled`, сохраняя уроки, историю и
+`completed_at`.
+
+Правила записи:
+
+- курс должен быть `published`, а его категория — активной, иначе
+  `404 course_not_found`;
+- автор не может записаться на собственный курс —
+  `403 own_course_enrollment_forbidden`;
+- повторная запись при активной записи — `409 already_enrolled`
+  (в том числе при конкурентных запросах).
+
+### Прогресс и журнал
+
+| Метод | Путь | Назначение | Разрешение |
+| --- | --- | --- | --- |
+| GET | `/enrollments/{id}/progress` | Текущий прогресс курса | `progress:read_own` |
+| GET | `/enrollments/{id}/history` | Журнал событий и удалённые уроки | `progress:read_own` |
+| PUT | `/enrollments/{id}/lessons/{lesson_id}/progress` | Установить состояние урока | `progress:update_own` |
+
+Состояния урока: `not_started`, `in_progress`, `completed`. Тело запроса —
+`{ "state": "completed" }`. Ответ содержит обновлённый урок и актуальный
+`course_progress`.
+
+`progress_percent` вычисляется на сервере как
+`floor(completed_lessons * 100 / total_lessons)`; для курса без уроков — `0`.
+`is_completed` истинно только когда все **текущие** уроки завершены; пустой
+курс завершённым не считается.
+
+Согласованность:
+
+- `enrollments.completed_at` — производная отметка, а не источник истины;
+- после каждого изменения прогресса и после изменения структуры курса
+  (добавление/удаление урока или модуля) все записи курса пересчитываются в
+  той же транзакции;
+- чтение прогресса также чинит устаревшую отметку под блокировкой строки;
+- события `course_completed` и `course_reopened` пишутся только при реальном
+  переходе;
+- новый урок уменьшает процент и снимает устаревшую отметку завершения;
+- удаление урока сохраняет снимок (`lesson_id_original`, названия урока и
+  модуля) в `lesson_progress` и `learning_events`; `lesson_id` становится
+  `NULL` по `ON DELETE SET NULL`.
+
+`removed_lessons_count` — количество уникальных удалённых уроков, по которым
+есть строка прогресса или событие журнала. Урок, добавленный и удалённый без
+действий обучающегося, счётчик не увеличивает.
+
+### Материалы курса
+
+| Метод | Путь | Назначение |
+| --- | --- | --- |
+| GET | `/courses/{slug}` | Программа с состояниями уроков, без `content` |
+| GET | `/courses/{slug}/lessons/{lesson_id}` | Полный Markdown-контент урока |
+
+Оба эндпоинта требуют активную запись на опубликованный курс. Если записи
+нет — `403 enrollment_required`; если курс снят с публикации или его категория
+отключена — `409 course_not_available` (запись при этом сохраняется). Ответы
+помечены `Cache-Control: private, no-store`.
+
+Администратор с `enrollments:manage_all` может читать опубликованный курс без
+собственной записи. Автор проверяет свои уроки, включая черновики, через
+авторский `GET /api/v1/courses/{id}`; публичный API обучения черновики не
+раскрывает.
+
+### Ошибки обучения
+
+| Код | HTTP | Когда |
+| --- | --- | --- |
+| `enrollment_required` | 403 | нет активной записи |
+| `own_course_enrollment_forbidden` | 403 | автор пытается записаться на свой курс |
+| `already_enrolled` | 409 | активная запись уже существует |
+| `enrollment_cancelled` | 409 | отмена уже отменённой записи |
+| `course_not_found` | 404 | курс не опубликован/не существует |
+| `course_not_available` | 409 | курс или категория закрыты для обучения |
+| `enrollment_not_found` | 404 | запись не существует или чужая |
+| `lesson_not_found` | 404 | урок не принадлежит курсу |
+| `course_has_enrollments` | 409 | попытка удалить курс с записями |
 
 ## Схемы данных
 
@@ -498,20 +604,22 @@ JWT payload: `sub` (UUID пользователя), `type` (`access`), `iss`, `i
 
 ## Роли и разрешения
 
-| Роль | Разрешения (коды) |
-| --- | --- |
-| `guest` | — |
-| `user` | `profile:read`, `profile:update`, `courses:read`, `learning:enroll`, `learning:participate` |
-| `course_author` | `profile:*`, `courses:read`, `courses:create`, `courses:update`, `courses:publish`, `courses:delete`, `learning:participate` (8) |
-| `teacher` | `profile:*`, `courses:read`, `learning:participate`, `teaching:manage` |
-| `organization_employee` | `profile:*`, `courses:read`, `learning:enroll`, `learning:participate` |
-| `organization_manager` | `profile:*`, `courses:read`, `learning:enroll`, `learning:participate`, `organization:view_members`, `organization:manage_members`, `organization:view_reports` |
-| `admin` | все 17 разрешений, включая `courses:manage_all` |
+| Роль | Разрешения (коды) | Всего |
+| --- | --- | --- |
+| `guest` | — | 0 |
+| `user` | `profile:read`, `profile:update`, `courses:read`, `learning:enroll`, `learning:participate`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 10 |
+| `course_author` | `profile:*`, `courses:read`, `courses:create`, `courses:update`, `courses:publish`, `courses:delete`, `learning:participate`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 13 |
+| `teacher` | `profile:*`, `courses:read`, `learning:participate`, `teaching:manage`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 10 |
+| `organization_employee` | `profile:*`, `courses:read`, `learning:enroll`, `learning:participate`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 10 |
+| `organization_manager` | `profile:*`, `courses:read`, `learning:enroll`, `learning:participate`, `organization:view_members`, `organization:manage_members`, `organization:view_reports`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 13 |
+| `admin` | все 24 разрешения, включая `courses:manage_all`, `enrollments:manage_all`, `progress:manage_all` | 24 |
 
 Несколько ролей объединяются: пользователь получает объединение разрешений.
 `guest` не назначается аккаунтам. Публичного API назначения ролей нет;
 `course_author` назначается через CLI `python -m app.cli assign-role`.
-Всего в системе 17 уникальных разрешений.
+Всего в системе 24 уникальных разрешения. Легаси-коды `learning:enroll` и
+`learning:participate` сохранены для совместимости, но новые проверки обучения
+используют `enrollments:*` / `progress:*`.
 
 ## CORS
 
@@ -577,6 +685,18 @@ $draft = Invoke-RestMethod -Method Post -Uri "$base/courses" -Headers $headers `
 
 # публикация
 Invoke-RestMethod -Method Post -Uri "$base/courses/$($draft.id)/publish" -Headers $headers
+
+# запись на курс
+$enrollment = Invoke-RestMethod -Method Post -Uri "$base/learning/enrollments" -Headers $headers `
+  -ContentType "application/json" -Body (@{ course_id = $draft.id } | ConvertTo-Json)
+
+# отметить урок завершённым
+Invoke-RestMethod -Method Put `
+  -Uri "$base/learning/enrollments/$($enrollment.id)/lessons/<lesson_id>/progress" `
+  -Headers $headers -ContentType "application/json" -Body (@{ state = "completed" } | ConvertTo-Json)
+
+# моё обучение
+Invoke-RestMethod -Uri "$base/learning/enrollments/mine" -Headers $headers
 ```
 
 ## Версионирование
