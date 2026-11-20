@@ -25,8 +25,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <div className="shell">
       <header className="site-header">
         <Link to="/" className="site-header__brand">
-          <img src={logoUrl} alt="" width={28} height={28} />
-          <span>Education Platform</span>
+          <span className="site-header__mark">
+            <img src={logoUrl} alt="" width={30} height={30} />
+          </span>
+          <span className="site-header__wordmark">
+            образование<span> / открытая платформа</span>
+          </span>
         </Link>
 
         <nav className="site-header__nav" aria-label="Основная навигация">
@@ -48,19 +52,28 @@ export function AppLayout({ children }: { children: ReactNode }) {
               )}
               {canReview && (
                 <NavLink to="/teaching/reviews" className={navLinkClass}>
-                  Проверка работ
+                  Работы
                 </NavLink>
               )}
-              <NavLink to="/profile" className={navLinkClass}>
-                {user.display_name}
-              </NavLink>
-              <button
-                type="button"
-                className="button button--ghost button--sm"
-                onClick={handleLogout}
-              >
-                Выйти
-              </button>
+              <div className="site-header__account">
+                <NavLink
+                  to="/profile"
+                  className="site-header__profile"
+                  aria-label={`Профиль: ${user.display_name}`}
+                >
+                  <span className="site-header__avatar" aria-hidden="true">
+                    {user.display_name.slice(0, 1).toLocaleUpperCase()}
+                  </span>
+                  <span>{user.display_name}</span>
+                </NavLink>
+                <button
+                  type="button"
+                  className="site-header__logout"
+                  onClick={handleLogout}
+                >
+                  Выйти
+                </button>
+              </div>
             </>
           ) : status === 'loading' ? (
             <span className="site-header__muted" role="status">
@@ -79,7 +92,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
       </header>
 
-      {children}
+      <div className="shell__content">{children}</div>
+      <footer className="site-footer">
+        <Link to="/" className="site-footer__brand">
+          образование <span>для каждого</span>
+        </Link>
+        <span>Бесплатное обучение, открытое всем.</span>
+        <Link to="/catalog">Исследовать каталог ↗</Link>
+      </footer>
     </div>
   );
 }

@@ -127,6 +127,7 @@ education-platform/
 │   └── scripts/                  check-environment.ps1
 ├── docs/
 │   ├── architecture.md
+│   ├── frontend-design-system.md
 │   ├── database.md
 │   ├── api.md
 │   └── development-plan.md
@@ -367,6 +368,7 @@ npm run preview
 | GET/POST | `/api/v1/assessments/teaching`, `/submissions/...` | Очередь и проверка работ |
 
 Полное описание схем, кодов ошибок и примеров — в [`docs/api.md`](docs/api.md).
+Визуальная система, адаптивные правила и принципы взаимодействия frontend описаны в [`docs/frontend-design-system.md`](docs/frontend-design-system.md).
 
 ## Роли и разрешения
 
