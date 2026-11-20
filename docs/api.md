@@ -819,3 +819,9 @@ Invoke-RestMethod -Uri "$base/learning/enrollments/mine" -Headers $headers
 
 Все эндпоинты находятся под `/api/v1`. При несовместимых изменениях вводится
 `/api/v2`; старый префикс сохраняется на время миграции клиентов.
+
+## Notifications (Sprint 7)
+
+`GET /api/v1/notifications/me?page=1&page_size=20&unread_only=false` возвращает уведомления текущего пользователя, общее количество, число непрочитанных и данные страницы. `GET /api/v1/notifications/unread-count` возвращает `{ "unread_count": number }`. `PATCH /api/v1/notifications/{notification_id}/read` отмечает своё уведомление прочитанным (повторный вызов безопасен); `POST /api/v1/notifications/read-all` отмечает все непрочитанные и возвращает `{ "updated": number }`. Для чужого ID возвращается 404. Чтение требует `notifications:read_own`, изменение — `notifications:update_own`. Публичных методов создания и удаления нет.
+
+Поддерживаются типы `course_completed`, `quiz_completed`, `assignment_accepted`, `assignment_revision_required` и `certificate_issued`. Payload содержит только безопасные внутренние идентификаторы и результаты. Клиент строит разрешённые внутренние маршруты самостоятельно и не использует URL из payload.
