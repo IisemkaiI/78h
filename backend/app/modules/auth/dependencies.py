@@ -104,3 +104,24 @@ def require_permissions(*codes: str) -> Callable[..., Awaitable[User]]:
         return current_user
 
     return dependency
+
+
+def require_any_permissions(*codes: str) -> Callable[..., Awaitable[User]]:
+    """Require at least one listed capability (any-of semantics)."""
+    if not codes:
+        raise ValueError("require_any_permissions() needs at least one permission code")
+
+    required = tuple(codes)
+
+    async def dependency(current_user: CurrentUser) -> User:
+        granted = set(current_user.permission_codes)
+        if not granted.intersection(required):
+            raise ApiError(
+                403,
+                "insufficient_permissions",
+                "You do not have the required permission.",
+                details={"required_any": list(required), "granted": sorted(granted)},
+            )
+        return current_user
+
+    return dependency

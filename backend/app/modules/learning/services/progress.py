@@ -6,6 +6,10 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
+from app.modules.assessments.models import (
+    AssignmentSubmission, PracticalAssignment, Quiz, QuizAttempt,
+)
 
 from app.core.errors import ApiError
 from app.modules.courses.models.lesson import Lesson
@@ -101,6 +105,26 @@ class ProgressService:
         """
         total = await self._progress.total_lessons(enrollment.course_id)
         counts = await self._progress.state_counts(enrollment.id, enrollment.course_id)
+        required_quizzes = int(await self._session.scalar(select(func.count(Quiz.id)).where(
+            Quiz.course_id == enrollment.course_id, Quiz.status == "published", Quiz.is_required.is_(True),
+        )) or 0)
+        passed_quizzes = int(await self._session.scalar(select(func.count(func.distinct(QuizAttempt.quiz_id)))
+            .join(Quiz, Quiz.id == QuizAttempt.quiz_id)
+            .where(Quiz.course_id == enrollment.course_id, Quiz.status == "published",
+                   Quiz.is_required.is_(True), QuizAttempt.user_id == enrollment.user_id,
+                   QuizAttempt.passed.is_(True))) or 0)
+        required_assignments = int(await self._session.scalar(select(func.count(PracticalAssignment.id)).where(
+            PracticalAssignment.course_id == enrollment.course_id,
+            PracticalAssignment.status == "published", PracticalAssignment.is_required.is_(True),
+        )) or 0)
+        accepted_assignments = int(await self._session.scalar(select(func.count(func.distinct(AssignmentSubmission.assignment_id)))
+            .join(PracticalAssignment, PracticalAssignment.id == AssignmentSubmission.assignment_id)
+            .where(PracticalAssignment.course_id == enrollment.course_id,
+                   PracticalAssignment.status == "published", PracticalAssignment.is_required.is_(True),
+                   AssignmentSubmission.user_id == enrollment.user_id,
+                   AssignmentSubmission.status == "graded", AssignmentSubmission.is_accepted.is_(True))) or 0)
+        total_required_assessments = required_quizzes + required_assignments
+        completed_required_assessments = passed_quizzes + accepted_assignments
         removed_progress = await self._progress.removed_lesson_ids_from_progress(
             enrollment.id
         )
@@ -113,6 +137,8 @@ class ProgressService:
             total_lessons=total,
             completed_lessons=counts.get(LessonState.COMPLETED.value, 0),
             in_progress_lessons=counts.get(LessonState.IN_PROGRESS.value, 0),
+            total_required_assessments=total_required_assessments,
+            completed_required_assessments=completed_required_assessments,
             removed_lessons_count=removed_count,
         )
 
@@ -151,6 +177,8 @@ class ProgressService:
                 not_started_lessons=snapshot.not_started_lessons,
                 progress_percent=snapshot.progress_percent,
                 is_completed=snapshot.is_completed,
+                total_required_assessments=snapshot.total_required_assessments,
+                completed_required_assessments=snapshot.completed_required_assessments,
                 completed_at=enrollment.completed_at,
                 removed_lessons_count=snapshot.removed_lessons_count,
             ),

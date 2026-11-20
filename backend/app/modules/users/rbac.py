@@ -57,6 +57,16 @@ class PermissionCode:
     PROGRESS_UPDATE_OWN: Final[str] = "progress:update_own"
     PROGRESS_MANAGE_ALL: Final[str] = "progress:manage_all"
 
+    # Quizzes, practical work and instructor assignments (Sprint 5)
+    ASSESSMENTS_MANAGE_OWN: Final[str] = "assessments:manage_own"
+    ASSESSMENTS_PUBLISH_OWN: Final[str] = "assessments:publish_own"
+    ASSESSMENTS_INSTRUCTORS_MANAGE: Final[str] = "assessments:instructors_manage"
+    ASSESSMENTS_ATTEMPT: Final[str] = "assessments:attempt"
+    ASSESSMENTS_READ_OWN_RESULTS: Final[str] = "assessments:read_own_results"
+    ASSESSMENTS_SUBMIT: Final[str] = "assessments:submit"
+    ASSESSMENTS_REVIEW: Final[str] = "assessments:review"
+    ASSESSMENTS_MANAGE_ALL: Final[str] = "assessments:manage_all"
+
     # Legacy learning permissions (kept for backward compatibility).
     LEARNING_ENROLL: Final[str] = "learning:enroll"
     LEARNING_PARTICIPATE: Final[str] = "learning:participate"

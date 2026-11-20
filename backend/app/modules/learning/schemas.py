@@ -41,6 +41,8 @@ class CourseProgressRead(BaseModel):
     not_started_lessons: int
     progress_percent: int
     is_completed: bool
+    total_required_assessments: int = 0
+    completed_required_assessments: int = 0
     completed_at: datetime | None = None
     removed_lessons_count: int = 0
 
@@ -145,6 +147,29 @@ class LearningLessonRead(BaseModel):
     state: LessonState
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    quizzes: list["LearningQuizRead"] = Field(default_factory=list)
+    assignments: list["LearningAssignmentRead"] = Field(default_factory=list)
+
+
+class LearningQuizRead(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: str | None
+    is_required: bool
+    passing_score_percent: int
+    time_limit_minutes: int | None
+    max_attempts: int | None
+
+
+class LearningAssignmentRead(BaseModel):
+    id: uuid.UUID
+    title: str
+    description: str
+    requirements: str | None
+    max_points: float
+    due_at: datetime | None
+    is_required: bool
+    allow_resubmission: bool
 
 
 class LearningLessonContentRead(LearningLessonRead):

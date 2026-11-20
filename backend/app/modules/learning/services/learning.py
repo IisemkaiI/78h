@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
+from app.modules.assessments.models import PracticalAssignment, Quiz
 
 from app.core.errors import ApiError
 from app.modules.courses.constants import CourseLevel, CourseStatus
@@ -23,6 +25,8 @@ from app.modules.learning.schemas import (
     LearningLessonContentRead,
     LearningLessonRead,
     LearningModuleRead,
+    LearningQuizRead,
+    LearningAssignmentRead,
 )
 from app.modules.learning.services.access import (
     has_any_learning_admin_right,
@@ -51,10 +55,19 @@ class LearningService:
             rows = await self._progress_rows.list_for_enrollment(enrollment.id)
         else:
             total = sum(len(module.lessons) for module in course.modules)
+            required_quizzes = int(await self._session.scalar(select(func.count(Quiz.id)).where(
+                Quiz.course_id == course.id, Quiz.status == "published", Quiz.is_required.is_(True),
+            )) or 0)
+            required_assignments = int(await self._session.scalar(select(func.count(PracticalAssignment.id)).where(
+                PracticalAssignment.course_id == course.id,
+                PracticalAssignment.status == "published", PracticalAssignment.is_required.is_(True),
+            )) or 0)
             snapshot = calculate_progress(
                 total_lessons=total,
                 completed_lessons=0,
                 in_progress_lessons=0,
+                total_required_assessments=required_quizzes + required_assignments,
+                completed_required_assessments=0,
             )
             progress = CourseProgressRead(
                 total_lessons=snapshot.total_lessons,
@@ -63,6 +76,8 @@ class LearningService:
                 not_started_lessons=snapshot.not_started_lessons,
                 progress_percent=snapshot.progress_percent,
                 is_completed=snapshot.is_completed,
+                total_required_assessments=snapshot.total_required_assessments,
+                completed_required_assessments=snapshot.completed_required_assessments,
                 completed_at=None,
                 removed_lessons_count=0,
             )
@@ -70,6 +85,28 @@ class LearningService:
         by_lesson = {
             row.lesson_id: row for row in rows if row.lesson_id is not None
         }
+        quiz_rows = list(await self._session.scalars(select(Quiz).where(
+            Quiz.course_id == course.id, Quiz.status == "published",
+        ).order_by(Quiz.created_at)))
+        assignment_rows = list(await self._session.scalars(select(PracticalAssignment).where(
+            PracticalAssignment.course_id == course.id,
+            PracticalAssignment.status == "published",
+        ).order_by(PracticalAssignment.created_at)))
+        quizzes_by_lesson: dict[uuid.UUID, list[LearningQuizRead]] = {}
+        for item in quiz_rows:
+            quizzes_by_lesson.setdefault(item.lesson_id, []).append(LearningQuizRead(
+                id=item.id, title=item.title, description=item.description,
+                is_required=item.is_required, passing_score_percent=item.passing_score_percent,
+                time_limit_minutes=item.time_limit_minutes, max_attempts=item.max_attempts,
+            ))
+        assignments_by_lesson: dict[uuid.UUID, list[LearningAssignmentRead]] = {}
+        for item in assignment_rows:
+            assignments_by_lesson.setdefault(item.lesson_id, []).append(LearningAssignmentRead(
+                id=item.id, title=item.title, description=item.description,
+                requirements=item.requirements, max_points=float(item.max_points),
+                due_at=item.due_at, is_required=item.is_required,
+                allow_resubmission=item.allow_resubmission,
+            ))
         return LearningCourseRead(
             enrollment_id=enrollment.id if enrollment is not None else None,
             course=self._course_info(course),
@@ -81,7 +118,9 @@ class LearningService:
                     description=module.description,
                     position=module.position,
                     lessons=[
-                        self._lesson_read(lesson, by_lesson.get(lesson.id))
+                        self._lesson_read(lesson, by_lesson.get(lesson.id),
+                                          quizzes_by_lesson.get(lesson.id, []),
+                                          assignments_by_lesson.get(lesson.id, []))
                         for lesson in module.lessons
                     ],
                 )
@@ -110,7 +149,27 @@ class LearningService:
             raise ApiError(404, "lesson_not_found", "Lesson not found.")
 
         lesson, row = found
-        item = self._lesson_read(lesson, row)
+        quiz_rows = list(await self._session.scalars(select(Quiz).where(
+            Quiz.lesson_id == lesson.id, Quiz.status == "published",
+        ).order_by(Quiz.created_at)))
+        assignment_rows = list(await self._session.scalars(select(PracticalAssignment).where(
+            PracticalAssignment.lesson_id == lesson.id,
+            PracticalAssignment.status == "published",
+        ).order_by(PracticalAssignment.created_at)))
+        item = self._lesson_read(
+            lesson, row,
+            [LearningQuizRead(
+                id=q.id, title=q.title, description=q.description,
+                is_required=q.is_required, passing_score_percent=q.passing_score_percent,
+                time_limit_minutes=q.time_limit_minutes, max_attempts=q.max_attempts,
+            ) for q in quiz_rows],
+            [LearningAssignmentRead(
+                id=a.id, title=a.title, description=a.description,
+                requirements=a.requirements, max_points=float(a.max_points),
+                due_at=a.due_at, is_required=a.is_required,
+                allow_resubmission=a.allow_resubmission,
+            ) for a in assignment_rows],
+        )
         return LearningLessonContentRead(
             **item.model_dump(),
             content=lesson.content,
@@ -180,7 +239,9 @@ class LearningService:
 
     @staticmethod
     def _lesson_read(
-        lesson: Lesson, row: LessonProgress | None
+        lesson: Lesson, row: LessonProgress | None,
+        quizzes: list[LearningQuizRead] | None = None,
+        assignments: list[LearningAssignmentRead] | None = None,
     ) -> LearningLessonRead:
         return LearningLessonRead(
             id=lesson.id,
@@ -192,4 +253,6 @@ class LearningService:
             state=LessonState(row.state) if row is not None else LessonState.NOT_STARTED,
             started_at=row.started_at if row is not None else None,
             completed_at=row.completed_at if row is not None else None,
+            quizzes=quizzes or [],
+            assignments=assignments or [],
         )

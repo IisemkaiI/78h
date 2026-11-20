@@ -11,12 +11,14 @@ import logging
 import uuid
 from collections.abc import Sequence
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiError
 from app.modules.courses.models.course import Course
 from app.modules.courses.models.lesson import Lesson
 from app.modules.courses.models.module import CourseModule
+from app.modules.assessments.models import PracticalAssignment, Quiz
 from app.modules.courses.repositories.course import CourseRepository
 from app.modules.courses.repositories.lesson import LessonRepository
 from app.modules.courses.repositories.module import ModuleRepository
@@ -141,6 +143,12 @@ class StructureService:
         self, course_id: uuid.UUID, module_id: uuid.UUID, user: User
     ) -> None:
         module = await self._module(course_id, module_id, user)
+        lesson_ids = select(Lesson.id).where(Lesson.module_id == module.id)
+        for item in await self._session.scalars(select(Quiz).where(Quiz.lesson_id.in_(lesson_ids))):
+            item.status = "archived"
+        for item in await self._session.scalars(select(PracticalAssignment).where(PracticalAssignment.lesson_id.in_(lesson_ids))):
+            item.status = "archived"
+        await self._session.flush()
         await self._modules.delete(module)
         # Lessons are removed by ON DELETE CASCADE inside the same transaction.
         await self._renumber_modules(course_id)
@@ -224,6 +232,18 @@ class StructureService:
         user: User,
     ) -> None:
         lesson = await self._lesson(course_id, module_id, lesson_id, user)
+        # Keep attempts and submitted work intact when removing a lesson. The
+        # assessment rows are archived and their optional lesson link is nulled
+        # by PostgreSQL; they are removed from the course's required-progress
+        # denominator in this same transaction.
+        quizzes = list(await self._session.scalars(
+            select(Quiz).where(Quiz.lesson_id == lesson.id)
+        ))
+        assignments = list(await self._session.scalars(
+            select(PracticalAssignment).where(PracticalAssignment.lesson_id == lesson.id)
+        ))
+        for item in [*quizzes, *assignments]:
+            item.status = "archived"
         await self._lessons.delete(lesson)
         await self._renumber_lessons(module_id)
         # The deleted lesson's progress rows survive with lesson_id = NULL;
