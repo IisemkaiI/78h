@@ -14,6 +14,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const canAuthor = user?.permissions.includes('courses:create') ?? false;
   const canLearn = user?.permissions.includes('enrollments:read_own') ?? false;
+  const canReview = user?.permissions.some((permission) => ['assessments:review', 'assessments:manage_own', 'assessments:manage_all'].includes(permission)) ?? false;
 
   const handleLogout = (): void => {
     signOut();
@@ -43,6 +44,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {canAuthor && (
                 <NavLink to="/author" className={navLinkClass}>
                   Мои курсы
+                </NavLink>
+              )}
+              {canReview && (
+                <NavLink to="/teaching/reviews" className={navLinkClass}>
+                  Проверка работ
                 </NavLink>
               )}
               <NavLink to="/profile" className={navLinkClass}>

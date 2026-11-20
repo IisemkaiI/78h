@@ -214,6 +214,9 @@ export function CourseEditorPage() {
         </div>
 
         <div className="badge-row">
+          <Link className="button button--ghost" to={`/author/courses/${course.id}/assessments`}>
+            Тесты и задания
+          </Link>
           <Link className="button button--ghost" to={`/author/courses/${course.id}/preview`}>
             Предпросмотр
           </Link>

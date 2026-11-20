@@ -5,6 +5,8 @@ import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { RequirePermission } from '../auth/RequirePermission';
 import { AppLayout } from './AppLayout';
 import { AuthorCoursePreviewPage } from '../pages/AuthorCoursePreviewPage';
+import { AuthorAssessmentsPage } from '../pages/AuthorAssessmentsPage';
+import { AssessmentReviewsPage } from '../pages/AssessmentReviewsPage';
 import { AuthorCoursesPage } from '../pages/AuthorCoursesPage';
 import { CatalogPage } from '../pages/CatalogPage';
 import { CourseDetailPage } from '../pages/CourseDetailPage';
@@ -59,6 +61,22 @@ export function App() {
               element={
                 <RequirePermission permission="enrollments:read_own">
                   <LearnCoursePage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/author/courses/:courseId/assessments"
+              element={
+                <RequirePermission permission="assessments:manage_own">
+                  <AuthorAssessmentsPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/teaching/reviews"
+              element={
+                <RequirePermission permission={["assessments:review", "assessments:manage_own", "assessments:manage_all"]}>
+                  <AssessmentReviewsPage />
                 </RequirePermission>
               }
             />

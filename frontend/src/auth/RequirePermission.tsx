@@ -11,7 +11,7 @@ export function RequirePermission({
   permission,
   children,
 }: {
-  permission: string;
+  permission: string | string[];
   children: ReactNode;
 }) {
   const { status, user } = useAuth();
@@ -31,7 +31,8 @@ export function RequirePermission({
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  if (!user.permissions.includes(permission)) {
+  const required = Array.isArray(permission) ? permission : [permission];
+  if (!required.some((item) => user.permissions.includes(item))) {
     return (
       <main className="page page--centered">
         <div className="card stack" style={{ maxWidth: '32rem' }}>

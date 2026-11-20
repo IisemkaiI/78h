@@ -256,6 +256,8 @@ export interface CourseProgress {
   not_started_lessons: number;
   progress_percent: number;
   is_completed: boolean;
+  total_required_assessments: number;
+  completed_required_assessments: number;
   completed_at: string | null;
   removed_lessons_count: number;
 }
@@ -340,6 +342,29 @@ export interface LearningLesson {
   state: LessonState;
   started_at: string | null;
   completed_at: string | null;
+  quizzes: LearningQuiz[];
+  assignments: LearningAssignment[];
+}
+
+export interface LearningQuiz {
+  id: string;
+  title: string;
+  description: string | null;
+  is_required: boolean;
+  passing_score_percent: number;
+  time_limit_minutes: number | null;
+  max_attempts: number | null;
+}
+
+export interface LearningAssignment {
+  id: string;
+  title: string;
+  description: string;
+  requirements: string | null;
+  max_points: number;
+  due_at: string | null;
+  is_required: boolean;
+  allow_resubmission: boolean;
 }
 
 export interface LearningLessonContent extends LearningLesson {

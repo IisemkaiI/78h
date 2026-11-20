@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { LessonStateBadge } from '../components/learning/LessonStateBadge';
+import { AssessmentActivities } from '../components/learning/AssessmentActivities';
 import { MarkdownContent } from '../components/learning/MarkdownContent';
 import { ProgressBar } from '../components/learning/ProgressBar';
 import {
@@ -187,6 +188,12 @@ export function LearnCoursePage() {
     }
   };
 
+  const refreshCourseProgress = (): void => {
+    if (token !== null) {
+      void getLearningCourse(token, slug).then(setCourse).catch(() => undefined);
+    }
+  };
+
   if (loading) {
     return (
       <main className="page page--centered">
@@ -229,6 +236,7 @@ export function LearnCoursePage() {
             <h1 className="learn-header__title">{course.course.title}</h1>
             <p className="muted">
               {progress.completed_lessons} из {progress.total_lessons} уроков пройдено
+              {progress.total_required_assessments > 0 && ` · ${progress.completed_required_assessments} из ${progress.total_required_assessments} обязательных проверок`}
               {progress.removed_lessons_count > 0
                 ? ` · ${progress.removed_lessons_count} удалено из программы`
                 : ''}
@@ -358,6 +366,15 @@ export function LearnCoursePage() {
               )}
 
               <MarkdownContent content={lesson.content} />
+
+              {(lesson.quizzes.length > 0 || lesson.assignments.length > 0) && token !== null && (
+                <AssessmentActivities
+                  quizzes={lesson.quizzes}
+                  assignments={lesson.assignments}
+                  token={token}
+                  onComplete={refreshCourseProgress}
+                />
+              )}
 
               <div className="learn-content__actions">
                 {lesson.state !== 'in_progress' && lesson.state !== 'completed' && (
