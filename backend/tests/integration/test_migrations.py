@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 import app.modules.courses.models  # noqa: F401  (registers course metadata)
 import app.modules.learning.models  # noqa: F401  (registers learning metadata)
 import app.modules.assessments.models  # noqa: F401  (registers assessment metadata)
+import app.modules.certificates.models  # noqa: F401  (registers certificate metadata)
 import app.modules.users.models  # noqa: F401  (registers user metadata)
 from app.core.database import Base
 from app.modules.users.rbac import RoleCode
@@ -66,6 +67,7 @@ async def test_expected_tables_exist(session_factory: async_sessionmaker[AsyncSe
         "assignment_submissions",
         "submission_versions",
         "assignment_reviews",
+        "certificates",
         "alembic_version",
     } <= tables
 
@@ -117,12 +119,12 @@ async def test_role_permission_matrix_is_seeded(
             ).all()
         )
 
-    assert counts[RoleCode.USER] == 13
-    assert counts[RoleCode.ADMIN] == 32
-    assert counts[RoleCode.COURSE_AUTHOR] == 19
-    assert counts[RoleCode.TEACHER] == 14
-    assert counts[RoleCode.ORGANIZATION_EMPLOYEE] == 13
-    assert counts[RoleCode.ORGANIZATION_MANAGER] == 16
+    assert counts[RoleCode.USER] == 15
+    assert counts[RoleCode.ADMIN] == 34
+    assert counts[RoleCode.COURSE_AUTHOR] == 21
+    assert counts[RoleCode.TEACHER] == 16
+    assert counts[RoleCode.ORGANIZATION_EMPLOYEE] == 15
+    assert counts[RoleCode.ORGANIZATION_MANAGER] == 18
     assert counts[RoleCode.GUEST] == 0
     assert all(count > 0 for code, count in counts.items() if code != RoleCode.GUEST)
 

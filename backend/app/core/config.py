@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # --- Application -------------------------------------------------------
     project_name: str = "Education Platform"
-    project_version: str = "0.5.0"
+    project_version: str = "0.6.0"
     app_env: Literal["local", "test", "staging", "production"] = "local"
     debug: bool = False
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     jwt_issuer: str = "education-platform"
     access_token_expire_minutes: int = 60
 
+    # Private PDF directory; it is not served by the frontend or API statics.
+    certificates_storage_dir: Path = PROJECT_ROOT / "backend" / "var" / "certificates"
+    public_frontend_url: str = "http://127.0.0.1:5173"
+
     @field_validator("jwt_secret")
     @classmethod
     def _require_strong_jwt_secret(cls, value: SecretStr) -> SecretStr:
@@ -85,6 +89,12 @@ class Settings(BaseSettings):
                 'python -c "import secrets; print(secrets.token_urlsafe(48))"'
             )
         return value
+
+    @field_validator("certificates_storage_dir")
+    @classmethod
+    def _resolve_certificate_storage(cls, value: Path) -> Path:
+        """Resolve relative storage overrides from the repository root."""
+        return value if value.is_absolute() else (PROJECT_ROOT / value).resolve()
 
     @property
     def cors_origins_list(self) -> list[str]:

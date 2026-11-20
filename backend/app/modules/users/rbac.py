@@ -67,6 +67,10 @@ class PermissionCode:
     ASSESSMENTS_REVIEW: Final[str] = "assessments:review"
     ASSESSMENTS_MANAGE_ALL: Final[str] = "assessments:manage_all"
 
+    # Certificates (Sprint 6)
+    CERTIFICATES_ISSUE_SELF: Final[str] = "certificates:issue_self"
+    CERTIFICATES_READ_SELF: Final[str] = "certificates:read_self"
+
     # Legacy learning permissions (kept for backward compatibility).
     LEARNING_ENROLL: Final[str] = "learning:enroll"
     LEARNING_PARTICIPATE: Final[str] = "learning:participate"

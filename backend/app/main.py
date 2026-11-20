@@ -61,7 +61,7 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title=settings.project_name,
         version=settings.project_version,
-        description="Education Platform — technical foundation (Sprint 0).",
+        description="Education Platform — free learning, assessment and certification.",
         lifespan=lifespan,
     )
 

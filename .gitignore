@@ -68,3 +68,4 @@ desktop.ini
 *.sqlite
 *.sqlite3
 .docker/
+backend/var/certificates/
