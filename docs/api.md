@@ -15,6 +15,7 @@
 - [Каталог (публичный)](#каталог-публичный)
 - [Курсы (авторский API)](#курсы-авторский-api)
 - [Обучение](#обучение)
+- [Тесты и практические задания](#тесты-и-практические-задания)
 - [Схемы данных](#схемы-данных)
 - [Формат ошибок](#формат-ошибок)
 - [Роли и разрешения](#роли-и-разрешения)
@@ -34,7 +35,7 @@
 {
   "status": "ok",
   "service": "education-platform-api",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "environment": "local"
 }
 ```
@@ -49,7 +50,7 @@
 ```json
 {
   "status": "ready",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "database": { "status": "available", "detail": null, "latency_ms": 1.84 }
 }
 ```
@@ -59,7 +60,7 @@
 ```json
 {
   "status": "not_ready",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "database": {
     "status": "unavailable",
     "detail": "ConnectionRefusedError",
@@ -76,7 +77,7 @@
 ```json
 {
   "application": "Education Platform",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "environment": "local",
   "api_version": "/api/v1"
 }
@@ -507,6 +508,92 @@ enrollment_not_found`.
 | `lesson_not_found` | 404 | урок не принадлежит курсу |
 | `course_has_enrollments` | 409 | попытка удалить курс с записями |
 
+## Тесты и практические задания
+
+Префикс: `/api/v1/assessments`. Защищённые методы требуют Bearer-токен.
+Автор управляет проверками своего курса; преподаватель работает только с
+курсами, на которые назначен; администратор действует с административными
+разрешениями. Обучающийся может проходить проверки только при активной записи
+на опубликованный курс.
+
+### Авторские проверки
+
+| Метод | Путь | Назначение |
+| --- | --- | --- |
+| POST | `/quizzes` | Создать черновик теста с вопросами |
+| GET | `/courses/{course_id}/quizzes` | Список тестов курса |
+| GET | `/quizzes/{quiz_id}` | Прочитать тест для редактирования |
+| PATCH | `/quizzes/{quiz_id}` | Обновить тест; опубликованная правка создаёт следующую версию |
+| POST | `/quizzes/{quiz_id}/publish` | Опубликовать тест |
+| POST | `/quizzes/{quiz_id}/unpublish` | Снять публикацию |
+| POST | `/quizzes/{quiz_id}/archive` | Архивировать, сохраняя историю |
+| POST | `/assignments` | Создать черновик практического задания |
+| PATCH | `/assignments/{assignment_id}` | Обновить задание |
+| POST | `/assignments/{assignment_id}/publish` | Опубликовать задание |
+| POST | `/assignments/{assignment_id}/unpublish` | Снять публикацию |
+| POST | `/assignments/{assignment_id}/archive` | Архивировать задание |
+
+Вопросы поддерживают `single_choice`, `multiple_choice`, `true_false` и
+`short_text`. У вопроса задаются формулировка, варианты для выбора, ключ
+проверки, баллы и позиция. Тест задаёт `passing_score_percent`,
+`time_limit_minutes`, `max_attempts` и `is_required`. Попытка сохраняет номер
+версии и снимок вопросов, вариантов и ключей на момент старта; последующее
+редактирование теста не изменяет старые результаты. Ключи ответов не выдаются
+до отправки попытки.
+
+Обязательность опубликованного материала нельзя менять обычным обновлением;
+материал нужно снять с публикации, изменить и опубликовать снова. Архивирование
+не удаляет попытки, отправки и отзывы.
+
+### Прохождение тестов и практики
+
+| Метод | Путь | Назначение |
+| --- | --- | --- |
+| POST | `/quizzes/{quiz_id}/attempts` | Начать попытку (создать снимок) |
+| PUT | `/attempts/{attempt_id}/answers` | Сохранить ответы |
+| POST | `/attempts/{attempt_id}/submit` | Завершить и проверить попытку |
+| GET | `/quizzes/{quiz_id}/attempts/mine` | История собственных попыток |
+| PUT | `/assignments/{assignment_id}/submission/draft` | Сохранить черновик практики |
+| POST | `/assignments/{assignment_id}/submission/submit` | Отправить новую версию работы |
+| GET | `/assignments/{assignment_id}/submission/mine` | Свой статус, версии и отзывы |
+
+Попытка теста считается завершённой для прогресса только при достижении
+проходного процента. Неуспешная отправка получает результат, но обязательную
+проверку не завершает. Практическая работа засчитывается после решения
+`accepted`; `revision_required` возвращает обучающегося к новой версии и не
+завершает работу.
+
+### Проверка работ и назначения преподавателей
+
+| Метод | Путь | Назначение |
+| --- | --- | --- |
+| GET | `/teaching` | Курсы и задания, доступные преподавателю |
+| GET | `/courses/{course_id}/assignments` | Задания курса для проверки |
+| GET | `/assignments/{assignment_id}/submissions` | Отправленные работы и история |
+| POST | `/submissions/{submission_id}/start-review` | Взять отправку в проверку |
+| POST | `/submissions/{submission_id}/review` | Принять или вернуть с оценкой/комментарием |
+| GET | `/courses/{course_id}/instructors` | Список назначенных преподавателей |
+| POST | `/courses/{course_id}/instructors` | Назначить преподавателя |
+| DELETE | `/courses/{course_id}/instructors/{instructor_id}` | Снять назначение без удаления отзывов |
+
+Решение содержит `decision` (`accepted` или `revision_required`), `score` и
+`comment`. Каждая отправка имеет неизменяемый номер версии, а решение связано
+с проверенной версией и reviewer. Автор назначает преподавателей собственного
+курса; администратор может управлять всеми назначениями. Автор не может
+проверять собственную работу обучающегося на своём курсе.
+
+### Прогресс курса с проверками
+
+`CourseProgress` сохраняет уроки и дополняется
+`total_required_assessments` / `completed_required_assessments`.
+`progress_percent = floor((completed_lessons + completed_required_assessments)
+* 100 / (total_lessons + total_published_required_assessments))`. Если
+учитываемых элементов нет, процент равен нулю, курс не завершён. Необязательные
+и архивированные проверки исключены из расчёта. Изменения уроков, публикации,
+архивации, успешной попытки или принятия задания синхронизируют прогресс и
+`completed_at` в одной транзакции. Полная структура ответов описана OpenAPI в
+`/openapi.json`.
+
 ## Схемы данных
 
 ### UserProfile
@@ -607,17 +694,17 @@ JWT payload: `sub` (UUID пользователя), `type` (`access`), `iss`, `i
 | Роль | Разрешения (коды) | Всего |
 | --- | --- | --- |
 | `guest` | — | 0 |
-| `user` | `profile:read`, `profile:update`, `courses:read`, `learning:enroll`, `learning:participate`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 10 |
-| `course_author` | `profile:*`, `courses:read`, `courses:create`, `courses:update`, `courses:publish`, `courses:delete`, `learning:participate`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 13 |
-| `teacher` | `profile:*`, `courses:read`, `learning:participate`, `teaching:manage`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 10 |
-| `organization_employee` | `profile:*`, `courses:read`, `learning:enroll`, `learning:participate`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 10 |
-| `organization_manager` | `profile:*`, `courses:read`, `learning:enroll`, `learning:participate`, `organization:view_members`, `organization:manage_members`, `organization:view_reports`, `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`, `progress:read_own`, `progress:update_own` | 13 |
-| `admin` | все 24 разрешения, включая `courses:manage_all`, `enrollments:manage_all`, `progress:manage_all` | 24 |
+| `user` | базовые разрешения Sprint 4 + `assessments:attempt`, `assessments:read_own_results`, `assessments:submit` | 13 |
+| `course_author` | базовые разрешения курса + `assessments:manage_own`, `assessments:publish_own`, `assessments:instructors_manage`, `assessments:attempt`, `assessments:read_own_results`, `assessments:submit` | 19 |
+| `teacher` | разрешения обучения + `assessments:attempt`, `assessments:read_own_results`, `assessments:submit`, `assessments:review` | 14 |
+| `organization_employee` | базовые разрешения обучения + `assessments:attempt`, `assessments:read_own_results`, `assessments:submit` | 13 |
+| `organization_manager` | разрешения организации и обучения + `assessments:attempt`, `assessments:read_own_results`, `assessments:submit` | 16 |
+| `admin` | все разрешения, включая `assessments:manage_all` | 32 |
 
 Несколько ролей объединяются: пользователь получает объединение разрешений.
 `guest` не назначается аккаунтам. Публичного API назначения ролей нет;
 `course_author` назначается через CLI `python -m app.cli assign-role`.
-Всего в системе 24 уникальных разрешения. Легаси-коды `learning:enroll` и
+Всего в системе 32 уникальных разрешения. Легаси-коды `learning:enroll` и
 `learning:participate` сохранены для совместимости, но новые проверки обучения
 используют `enrollments:*` / `progress:*`.
 

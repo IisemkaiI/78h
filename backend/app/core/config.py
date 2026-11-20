@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # --- Application -------------------------------------------------------
     project_name: str = "Education Platform"
-    project_version: str = "0.2.0"
+    project_version: str = "0.5.0"
     app_env: Literal["local", "test", "staging", "production"] = "local"
     debug: bool = False
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

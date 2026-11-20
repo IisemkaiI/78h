@@ -395,6 +395,10 @@ is_completed     = total_lessons > 0 and completed_lessons == total_lessons
 - `0004_seed_courses` — 8 категорий и расширение матрицы разрешений до 17;
 - `0005_learning` — `enrollments`, `lesson_progress`, `learning_events`,
   индексы, CHECK/FK-ограничения и 7 разрешений обучения (до 24).
+- `0006_assessments` — тесты и попытки, практические задания и проверка,
+  назначения преподавателей и разрешения Sprint 5.
+- `0007_assessment_lesson_retention` — nullable `lesson_id` с `ON DELETE SET
+  NULL`, сохраняющий проверку при удалении урока.
 
 Seed-ревизии идемпотентны (`ON CONFLICT DO NOTHING`). `alembic/env.py`
 использует async-движок и DSN из `Settings`; переменная

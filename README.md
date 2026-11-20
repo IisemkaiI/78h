@@ -2,22 +2,24 @@
 
 Многофункциональная образовательная LMS-платформа. Репозиторий содержит
 фундамент проекта (**Sprint 0**), базовую систему пользователей (**Sprint 1**),
-каталог с конструктором курсов (**Sprint 2**) и процесс обучения (**Sprint 4**):
+каталог и конструктор курсов (**Sprint 2**), процесс обучения (**Sprint 4**) и
+тесты с практическими заданиями (**Sprint 5**):
 React-клиент, FastAPI-бэкенд, PostgreSQL, Alembic-миграции, регистрацию, вход
 по JWT, личный профиль, реляционную ролевую модель (RBAC), публичный каталог
 курсов, редактор курсов для авторов, запись на курсы, три состояния урока,
-прогресс и журнал обучения.
+прогресс и журнал обучения, тесты с историей попыток, практические задания с
+проверкой преподавателем и назначение преподавателей на курс.
 
-Модули тестирования, сертификации, корпоративного кабинета и админ-панели
-появятся в следующих спринтах.
+Сертификация, корпоративный кабинет, админ-панель и уведомления запланированы
+в следующих спринтах.
 
-## Статус Sprint 4
+## Статус Sprint 5
 
 | Критерий | Статус |
 | --- | --- |
 | PostgreSQL 17 в Docker Compose | проверено (healthy) |
-| Alembic-миграции схемы | применены, head `0005_learning` |
-| Системные роли и разрешения | 7 ролей, 24 разрешения |
+| Alembic-миграции схемы | применены, head `0007_assessment_lesson_retention` |
+| Системные роли и разрешения | 7 ролей, 32 разрешения |
 | Регистрация с базовой ролью `user` | проверено тестами |
 | Вход по email/паролю, JWT access token | проверено тестами |
 | Личный профиль (`GET/PATCH /users/me`) | проверено тестами |
@@ -36,10 +38,14 @@ React-клиент, FastAPI-бэкенд, PostgreSQL, Alembic-миграции, 
 | Пересчёт прогресса при добавлении/удалении урока | проверено тестами |
 | Удаление урока сохраняет историю; удаление курса с записями → 409 | проверено тестами |
 | Администратор читает записи и опубликованные курсы | проверено тестами |
-| Frontend: «Моё обучение», прохождение курса, предпросмотр автора | typecheck + build |
-| Backend-тесты (unit + PostgreSQL) | 11 unit + 102 integration, все зелёные |
-| Production-сборка frontend и TypeScript | проверено |
-| Документация | обновлена |
+| Тесты, версии попыток и автоматическая проверка ответов | unit + PostgreSQL integration |
+| Практические задания, версии отправок и отзывы преподавателей | PostgreSQL integration + ручной UI |
+| Обязательные проверки в общем прогрессе курса | API + ручной UI: 0/2 → 1/2 → 2/2; с уроком 100% |
+| Назначение преподавателя и просмотр очереди работ | ручной UI |
+| Frontend Sprint 5: авторинг, прохождение, проверка и предпросмотр черновика | ручной UI, ошибок консоли нет |
+| Backend-тесты (unit + PostgreSQL) | 22 unit + 105 integration, все зелёные |
+| TypeScript typecheck и production build | проверено; предупреждение Vite о чанке 545 kB |
+| Проект | версия `0.5.0` |
 
 Подробности проверок и ограничения — в конце README и в
 [`docs/development-plan.md`](docs/development-plan.md).
@@ -93,7 +99,9 @@ education-platform/
 │   │       ├── 0002_seed_rbac.py
 │   │       ├── 0003_courses.py    схемы категорий, курсов, модулей, уроков
 │   │       ├── 0004_seed_courses.py  8 категорий + расширение RBAC
-│   │       └── 0005_learning.py   записи, прогресс, журнал + RBAC обучения
+│   │       ├── 0005_learning.py   записи, прогресс, журнал + RBAC обучения
+│   │       ├── 0006_assessments.py тесты, отправки, проверки, преподаватели
+│   │       └── 0007_assessment_lesson_retention.py история удалённых уроков
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── deps.py           SessionDep
@@ -162,7 +170,7 @@ Copy-Item .env.example .env
 | Переменная | Назначение | Пример |
 | --- | --- | --- |
 | `PROJECT_NAME` | Название приложения | `Education Platform` |
-| `PROJECT_VERSION` | Версия проекта | `0.4.0` |
+| `PROJECT_VERSION` | Версия проекта | `0.5.0` |
 | `APP_ENV` | Окружение: `local`/`test`/`staging`/`production` | `local` |
 | `DEBUG` | SQL echo и подробные логи | `false` |
 | `LOG_LEVEL` | Уровень логирования | `INFO` |
@@ -253,7 +261,7 @@ cd D:\education-platform\backend
 миграциями. Ревизии `0002_seed_rbac`, `0004_seed_courses` и `0005_learning`
 идемпотентно создают системные роли, разрешения, категории и RBAC обучения
 (`ON CONFLICT DO NOTHING`) и не удаляют существующие данные. Текущая ревизия —
-`0005_learning`.
+`0007_assessment_lesson_retention`.
 
 ## Запуск Backend
 
@@ -352,6 +360,11 @@ npm run preview
 | PUT | `/api/v1/learning/enrollments/{id}/lessons/{lid}/progress` | Состояние урока |
 | GET | `/api/v1/learning/courses/{slug}` | Программа для обучающегося |
 | GET | `/api/v1/learning/courses/{slug}/lessons/{lid}` | Markdown-контент урока |
+| POST/PATCH | `/api/v1/assessments/quizzes...` | Авторинг и публикация тестов |
+| POST | `/api/v1/assessments/quizzes/{id}/attempts` | Начать попытку теста |
+| PUT/POST | `/api/v1/assessments/assignments/{id}/submission/...` | Черновик и отправка практики |
+| GET/POST/DELETE | `/api/v1/assessments/courses/{id}/instructors...` | Назначения преподавателей |
+| GET/POST | `/api/v1/assessments/teaching`, `/submissions/...` | Очередь и проверка работ |
 
 Полное описание схем, кодов ошибок и примеров — в [`docs/api.md`](docs/api.md).
 
@@ -411,7 +424,7 @@ Integration-тесты используют отдельную базу `educati
 тестами очищаются `learning_events`, `lesson_progress`, `enrollments`, `lessons`,
 `course_modules`, `courses`, `user_roles`, `users`. SQLite не используется.
 
-Фактический прогон Sprint 4 (2026-11-20):
+Фактический прогон Sprint 4 (2026-11-20, сохранён как исторический результат):
 
 ```
 pytest                     -> 11 passed, 102 deselected
@@ -419,6 +432,17 @@ pytest -m integration      -> 102 passed, 11 deselected
 npm run typecheck          -> ok
 npm run build              -> ok (предупреждение Vite о чанке >500 kB)
 alembic upgrade/downgrade/upgrade -> ok
+```
+
+Фактический прогон Sprint 5 (2026-11-20):
+
+```
+pytest                     -> 22 passed, 105 deselected
+pytest -m integration      -> 105 passed, 22 deselected (PostgreSQL)
+alembic current/heads      -> 0007_assessment_lesson_retention (head)
+alembic check              -> No new upgrade operations detected
+npm run typecheck          -> ok
+npm run build              -> ok (Vite warning: JS chunk 545 kB)
 ```
 
 ## Безопасность

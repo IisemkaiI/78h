@@ -1,10 +1,10 @@
 # База данных
 
-## 1. Состояние после Sprint 4
+## 1. Состояние после Sprint 5
 
 PostgreSQL 17 работает в Docker Compose. Схема создаётся и версионируется
 Alembic-миграциями; `create_all()` в приложении не используется. Текущая
-ревизия — `0005_learning`.
+ревизия — `0007_assessment_lesson_retention`.
 
 Таблицы:
 
@@ -22,9 +22,16 @@ Alembic-миграциями; `create_all()` в приложении не исп
 | `enrollments` | запись пользователя на курс (одна на пару) |
 | `lesson_progress` | состояние урока и снимки удалённых уроков |
 | `learning_events` | журнал обучения: записи, старт, завершение |
+| `course_instructors` | назначения преподавателей на курсы |
+| `quizzes`, `quiz_questions` | тесты и версии вопросов/критериев |
+| `quiz_attempts`, `quiz_answers` | попытки со снимками теста и ответами |
+| `practical_assignments` | практические задания курса |
+| `assignment_submissions` | состояние работы обучающегося |
+| `submission_versions` | неизменяемые версии отправленного ответа |
+| `assignment_reviews` | решения преподавателей, оценки и комментарии |
 | `alembic_version` | текущая ревизия схемы |
 
-Таблиц тестирования, сертификации и организаций пока нет.
+Таблиц сертификации и организаций пока нет.
 
 ## 2. Параметры подключения
 
@@ -103,26 +110,33 @@ role_permissions(role_id → roles.id ON DELETE CASCADE,
 
 ## 4. Начальные данные RBAC
 
-Ревизия `0002_seed_rbac` создаёт данные идемпотентно
+Ревизия `0002_seed_rbac` создаёт базовые данные идемпотентно
 (`ON CONFLICT DO NOTHING`), не удаляя ничего существующего.
+
+Таблица показывает текущие назначения после применения `0006_assessments`:
 
 | Роль | Кол-во разрешений |
 | --- | --- |
 | `guest` | 0 |
-| `user` | 10 |
-| `course_author` | 13 |
-| `teacher` | 10 |
-| `organization_employee` | 10 |
-| `organization_manager` | 13 |
-| `admin` | 24 |
+| `user` | 13 |
+| `course_author` | 19 |
+| `teacher` | 14 |
+| `organization_employee` | 13 |
+| `organization_manager` | 16 |
+| `admin` | 32 |
 
-Всего 24 уникальных разрешения. Sprint 2 добавил `courses:delete` и
+Всего 32 уникальных разрешения. Sprint 2 добавил `courses:delete` и
 `courses:manage_all`, а `course_author` получил `courses:create`,
 `courses:update`, `courses:publish` и `courses:delete`. Sprint 4 добавил
 `enrollments:create`, `enrollments:read_own`, `enrollments:cancel_own`,
 `enrollments:manage_all`, `progress:read_own`, `progress:update_own` и
 `progress:manage_all`; первые пять из них получили все роли, кроме `guest`
 (полный набор `*:manage_all` — только `admin`).
+
+Sprint 5 добавил восемь разрешений `assessments:*`: пользователи получили
+`attempt`, `read_own_results` и `submit`; авторы дополнительно получили
+`manage_own`, `publish_own` и `instructors_manage`; преподаватели — `review`;
+администратор получил полный набор.
 
 Разрешения сгруппированы по модулям: `profile:*`, `courses:*`,
 `learning:*`, `enrollments:*`, `progress:*`, `teaching:*`, `organization:*`,
@@ -254,12 +268,49 @@ UNIQUE (`enrollment_id`, `lesson_id_original`) и индекс
 `course_completed`, `course_reopened`. Индексы: (`enrollment_id`,
 `created_at`) и `lesson_id`.
 
+## 7. Тесты и практические задания
+
+Миграция `0006_assessments` создаёт девять таблиц и разрешения Sprint 5;
+`0007_assessment_lesson_retention` делает `lesson_id` nullable с `ON DELETE SET NULL`, чтобы удаление урока не удаляло историю проверки.
+
+### Основные сущности
+
+- `course_instructors`: уникальная пара `course_id`/`instructor_id`, автор
+  назначения и время создания. Назначение можно снять, не затрагивая отзывы.
+- `quizzes`: статус, обязательность, проходной процент, лимит времени/попыток
+  и версия содержимого. `quiz_questions` хранит тип, формулировку, варианты,
+  ключ ответа, баллы и позицию.
+- `quiz_attempts`: пользователь, запись, версия теста и JSONB-снимок вопросов;
+  результат, процент, `passed`, время старта/завершения и статус.
+- `quiz_answers`: ответы и начисленные баллы по ключу вопроса.
+- `practical_assignments`: описание, требования, максимальные баллы,
+  обязательность, возможность повторной отправки и статус публикации.
+- `assignment_submissions`: одна работа на пару assignment/user, текущий статус,
+  последняя версия, текущая оценка и флаг принятия.
+- `submission_versions`: неизменяемый текст и номер каждой отправки.
+- `assignment_reviews`: решение, оценка, комментарий, версия работы и reviewer.
+
+Попытки хранят снимок критериев на старте; авторские правки не меняют
+историческую проверку. Удаление теста/задания блокируется при существующей
+истории ограничениями FK; архивирование сохраняет данные.
+
+### Прогресс
+
+`CourseProgress` включает `total_required_assessments` и
+`completed_required_assessments`. В знаменатель попадают текущие уроки и
+опубликованные обязательные проверки. Тест становится завершённым после
+проходной попытки; практическая работа — только после решения `accepted`.
+Неуспешные тесты, черновики, `submitted`, `under_review` и
+`revision_required` не завершают проверку. Архивированные проверки исключаются
+из текущего прогресса без удаления истории. Пересчёт и синхронизация
+`enrollments.completed_at` происходят в транзакции с событием изменения.
+
 Согласованность прогресса и структуры описана в `docs/api.md`, раздел
 «Обучение»: пересчёт выполняется после каждого изменения прогресса и структуры
 курса в той же транзакции; чтение прогресса дополнительно чинит устаревшую
 отметку под `SELECT ... FOR UPDATE`.
 
-## 7. Миграции
+## 8. Миграции
 
 Файлы:
 
@@ -271,6 +322,8 @@ backend/alembic/versions/0002_seed_rbac.py
 backend/alembic/versions/0003_courses.py
 backend/alembic/versions/0004_seed_courses.py
 backend/alembic/versions/0005_learning.py
+backend/alembic/versions/0006_assessments.py
+backend/alembic/versions/0007_assessment_lesson_retention.py
 ```
 
 Команды (из `backend/`):
@@ -291,7 +344,7 @@ backend/alembic/versions/0005_learning.py
 - тест `test_orm_metadata_matches_migrations` проверяет отсутствие расхождений
   между моделями SQLAlchemy и фактической схемой.
 
-## 8. Docker Compose
+## 9. Docker Compose
 
 ```yaml
 services:
@@ -316,7 +369,7 @@ services:
 
 Проверено: `docker compose ps` → `Up ... (healthy)`, PostgreSQL 17.12.
 
-## 9. Подключение из приложения
+## 10. Подключение из приложения
 
 `app/core/database.py`:
 
@@ -342,7 +395,7 @@ SessionFactory = async_sessionmaker(engine, expire_on_commit=False, autoflush=Fa
 Eager-loading ролей и разрешений (`selectinload`) исключает неявные SQL-запросы
 из async-контекста.
 
-## 10. Проверка готовности
+## 11. Проверка готовности
 
 `ping_database()` выполняет `SELECT 1` с ограничением `DB_READY_TIMEOUT` (3 с):
 
@@ -352,7 +405,7 @@ Eager-loading ролей и разрешений (`selectinload`) исключа
   `database.status = "unavailable"`, `detail` — короткая категория проблемы
   (например, `ConnectionRefusedError`) без хостов, логинов и паролей.
 
-## 11. Тестовая база
+## 12. Тестовая база
 
 Integration-тесты используют отдельную базу `education_platform_test`
 (переопределяется `TEST_POSTGRES_DB`). `tests/integration/conftest.py`:
@@ -366,7 +419,7 @@ Integration-тесты используют отдельную базу `educati
 
 SQLite не используется: тесты проверяют настоящее поведение PostgreSQL.
 
-## 12. Проверка вручную
+## 13. Проверка вручную
 
 ```powershell
 cd D:\education-platform
@@ -399,7 +452,7 @@ docker exec education-platform-postgres psql -U edu_platform -d education_platfo
 
 Сохранение после перезапуска контейнера проверяется `docker compose restart postgres`.
 
-## 13. Диагностика
+## 14. Диагностика
 
 | Симптом | Причина | Решение |
 | --- | --- | --- |
