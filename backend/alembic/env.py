@@ -22,6 +22,7 @@ from app.core.database import Base
 # Importing the models registers every table on Base.metadata for autogenerate.
 import app.modules.courses.models  # noqa: F401  (side-effect import)
 import app.modules.learning.models  # noqa: F401  (side-effect import)
+import app.modules.assessments.models  # noqa: F401  (side-effect import)
 import app.modules.users.models  # noqa: F401  (side-effect import)
 
 config = context.config
