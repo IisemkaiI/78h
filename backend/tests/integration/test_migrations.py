@@ -119,12 +119,12 @@ async def test_role_permission_matrix_is_seeded(
             ).all()
         )
 
-    assert counts[RoleCode.USER] == 15
-    assert counts[RoleCode.ADMIN] == 34
-    assert counts[RoleCode.COURSE_AUTHOR] == 21
-    assert counts[RoleCode.TEACHER] == 16
-    assert counts[RoleCode.ORGANIZATION_EMPLOYEE] == 15
-    assert counts[RoleCode.ORGANIZATION_MANAGER] == 18
+    assert counts[RoleCode.USER] == 17
+    assert counts[RoleCode.ADMIN] == 36
+    assert counts[RoleCode.COURSE_AUTHOR] == 23
+    assert counts[RoleCode.TEACHER] == 18
+    assert counts[RoleCode.ORGANIZATION_EMPLOYEE] == 17
+    assert counts[RoleCode.ORGANIZATION_MANAGER] == 20
     assert counts[RoleCode.GUEST] == 0
     assert all(count > 0 for code, count in counts.items() if code != RoleCode.GUEST)
 

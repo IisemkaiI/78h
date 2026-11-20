@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
+from app.core.events import CertificateIssued, publish_event
 from app.core.errors import ApiError
 from app.modules.certificates.models import Certificate
 from app.modules.certificates.pdf import render_certificate_pdf
@@ -100,6 +101,11 @@ class CertificateService:
                 pdf_storage_key=storage_key,
             )
             self._session.add(certificate)
+            await self._session.flush()
+            await publish_event(self._session, CertificateIssued(
+                user_id=enrollment.user_id, certificate_id=certificate.id,
+                course_title=certificate.course_title, certificate_number=certificate.certificate_number,
+            ))
             await self._session.commit()
             return certificate
         except IntegrityError as exc:

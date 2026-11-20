@@ -72,6 +72,10 @@ async def test_quiz_snapshot_grading_history_and_required_progress(
     assert failed.status_code == 200, failed.text
     assert failed.json()["passed"] is False
     assert failed.json()["score"] == 0
+    failed_notice = await client.get("/api/v1/notifications/me", headers=bearer(learner_token))
+    assert failed_notice.json()["items"][0]["type"] == "quiz_completed"
+    assert failed_notice.json()["items"][0]["payload"]["passed"] is False
+    assert failed_notice.json()["items"][0]["payload"]["score"] == "0"
     repeat = await client.post(f"/api/v1/assessments/attempts/{first.json()['id']}/submit", headers=bearer(learner_token))
     assert repeat.status_code == 409
 
@@ -88,6 +92,8 @@ async def test_quiz_snapshot_grading_history_and_required_progress(
     passed = await client.post(f"/api/v1/assessments/attempts/{second.json()['id']}/submit", headers=bearer(learner_token))
     assert passed.status_code == 200, passed.text
     assert passed.json()["passed"] is True
+    quiz_notices = await client.get("/api/v1/notifications/me", headers=bearer(learner_token))
+    assert [item["payload"]["passed"] for item in quiz_notices.json()["items"] if item["type"] == "quiz_completed"] == [True, False]
     assert passed.json()["quiz_version"] == created.json()["version"]
     history = await client.get(f"/api/v1/assessments/quizzes/{quiz_id}/attempts/mine", headers=bearer(learner_token))
     assert history.status_code == 200 and len(history.json()) == 2
@@ -150,6 +156,9 @@ async def test_assignment_review_revisions_teacher_scope_and_course_progress(
                                  headers=bearer(teacher_token))
     assert revision.status_code == 200 and revision.json()["status"] == "revision_required"
     assert revision.json()["is_accepted"] is False
+    revision_notice = await client.get("/api/v1/notifications/me", headers=bearer(learner_token))
+    assert revision_notice.json()["items"][0]["type"] == "assignment_revision_required"
+    assert revision_notice.json()["items"][0]["payload"]["version"] == 1
     own = await client.get(f"/api/v1/assessments/assignments/{assignment_id}/submission/mine", headers=bearer(learner_token))
     assert own.status_code == 200 and own.json()["reviews"][0]["comment"] == "Add an explanation."
     incomplete = await client.get(f"/api/v1/learning/enrollments/{enrollment['id']}/progress", headers=bearer(learner_token))
@@ -165,6 +174,9 @@ async def test_assignment_review_revisions_teacher_scope_and_course_progress(
                                  headers=bearer(teacher_token))
     assert accepted.status_code == 200 and accepted.json()["is_accepted"] is True
     assert len(accepted.json()["versions"]) == 2
+    assignment_notices = await client.get("/api/v1/notifications/me", headers=bearer(learner_token))
+    assert [item["type"] for item in assignment_notices.json()["items"][:2]] == ["assignment_accepted", "assignment_revision_required"]
+    assert assignment_notices.json()["items"][0]["payload"]["version"] == 2
 
     progress = await client.get(f"/api/v1/learning/enrollments/{enrollment['id']}/progress", headers=bearer(learner_token))
     assert progress.json()["completed_required_assessments"] == 1

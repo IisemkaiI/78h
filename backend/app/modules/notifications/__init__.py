@@ -1,0 +1,1 @@
+"""In-platform notifications module."""

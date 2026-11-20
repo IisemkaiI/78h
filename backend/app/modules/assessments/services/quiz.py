@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiError
+from app.core.events import QuizCompleted, publish_event
 from app.modules.assessments.models import Quiz, QuizAnswer, QuizAttempt, QuizQuestion
 from app.modules.assessments.schemas import AnswerInput, QuizCreate, QuizUpdate
 from app.modules.courses.models import Course, CourseModule, Lesson
@@ -263,7 +264,13 @@ class QuizService:
         attempt.score, attempt.percent, attempt.passed = score, percent, passed
         attempt.status = "submitted"
         attempt.completed_at = datetime.now(UTC)
-        await ProgressService(self.session).reconcile_course((await self.session.get(Quiz, attempt.quiz_id)).course_id)
+        quiz = await self.session.get(Quiz, attempt.quiz_id)
+        course = await self.session.get(Course, quiz.course_id)
+        await publish_event(self.session, QuizCompleted(
+            user_id=user.id, attempt_id=attempt.id, course_slug=course.slug,
+            quiz_title=attempt.snapshot["title"], passed=passed, score=score, max_score=maximum,
+        ))
+        await ProgressService(self.session).reconcile_course(quiz.course_id)
         await self.session.commit()
         all_attempts = int(await self.session.scalar(select(func.count()).select_from(QuizAttempt).where(
             QuizAttempt.quiz_id == attempt.quiz_id, QuizAttempt.user_id == user.id,

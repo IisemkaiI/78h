@@ -12,6 +12,7 @@ from app.modules.assessments.models import (
 )
 
 from app.core.errors import ApiError
+from app.core.events import CourseCompleted, publish_event
 from app.modules.courses.models.lesson import Lesson
 from app.modules.courses.models.module import CourseModule
 from app.modules.courses.repositories.lesson import LessonRepository
@@ -155,6 +156,13 @@ class ProgressService:
                     "progress_percent": snapshot.progress_percent,
                 },
             )
+            await publish_event(self._session, CourseCompleted(
+                user_id=enrollment.user_id,
+                enrollment_id=enrollment.id,
+                course_slug=enrollment.course.slug,
+                course_title=enrollment.course.title,
+                completed_at=now.isoformat(),
+            ))
             changed = True
         elif not snapshot.is_completed and enrollment.completed_at is not None:
             enrollment.completed_at = None

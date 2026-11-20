@@ -77,6 +77,10 @@ async def test_issue_is_idempotent_private_and_publicly_verifiable(
     )
     assert second.status_code == 201
     assert second.json()["id"] == data["id"]
+    notices = await client.get("/api/v1/notifications/me", headers=bearer(token))
+    certificate_notices = [item for item in notices.json()["items"] if item["type"] == "certificate_issued"]
+    assert len(certificate_notices) == 1
+    assert certificate_notices[0]["payload"]["certificate_id"] == data["id"]
 
     listing = await client.get("/api/v1/certificates/me", headers=bearer(token))
     assert listing.status_code == 200 and len(listing.json()) == 1

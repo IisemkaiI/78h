@@ -18,6 +18,8 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.database import dispose_engine
 from app.core.errors import register_exception_handlers
+from app.core.events import register_event_handler
+from app.modules.notifications.service import handle_notification_event
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     """Application factory."""
     settings = get_settings()
+    register_event_handler(handle_notification_event)
     _configure_logging(settings.log_level)
 
     application = FastAPI(

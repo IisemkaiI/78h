@@ -71,6 +71,10 @@ class PermissionCode:
     CERTIFICATES_ISSUE_SELF: Final[str] = "certificates:issue_self"
     CERTIFICATES_READ_SELF: Final[str] = "certificates:read_self"
 
+    # Notifications (Sprint 7)
+    NOTIFICATIONS_READ_OWN: Final[str] = "notifications:read_own"
+    NOTIFICATIONS_UPDATE_OWN: Final[str] = "notifications:update_own"
+
     # Legacy learning permissions (kept for backward compatibility).
     LEARNING_ENROLL: Final[str] = "learning:enroll"
     LEARNING_PARTICIPATE: Final[str] = "learning:participate"

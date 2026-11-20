@@ -11,6 +11,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiError
+from app.core.events import AssignmentReviewed, publish_event
 from app.modules.assessments.models import (
     AssignmentReview, AssignmentSubmission, CourseInstructor,
     PracticalAssignment, SubmissionVersion,
@@ -231,6 +232,12 @@ class AssignmentService:
         row.current_score = payload.score
         row.is_accepted = payload.decision == "accepted"
         await self.session.flush()
+        course = await self.session.get(Course, assignment.course_id)
+        await publish_event(self.session, AssignmentReviewed(
+            user_id=row.user_id, submission_id=row.id, version_number=row.latest_version,
+            course_slug=course.slug, assignment_title=assignment.title,
+            decision=payload.decision, score=payload.score,
+        ))
         await ProgressService(self.session).reconcile_course(assignment.course_id)
         await self.session.commit()
         return await self._submission_dict(row)
