@@ -1,5 +1,13 @@
 # Архитектура
 
+Sprint 6 добавляет отдельный модуль `certificates`: API передаёт запрос в
+`CertificateService`, который использует общий `ProgressService` обучения,
+создаёт snapshot и генерирует PDF через выделенные компоненты `pdf` и
+`storage`. Уникальный FK на `enrollments` и блокировка enrollment обеспечивают
+идемпотентность выдачи; публичная проверка использует непредсказуемый код и
+возвращает только минимальные данные сертификата. Хранилище PDF остаётся вне
+frontend static root.
+
 ## 1. Общая модель
 
 Проект строится как **модульный монолит**.
@@ -399,6 +407,8 @@ is_completed     = total_lessons > 0 and completed_lessons == total_lessons
   назначения преподавателей и разрешения Sprint 5.
 - `0007_assessment_lesson_retention` — nullable `lesson_id` с `ON DELETE SET
   NULL`, сохраняющий проверку при удалении урока.
+- `0008_certificates` — snapshots сертификатов, уникальная связь с enrollment,
+  разрешения для личных сертификатов.
 
 Seed-ревизии идемпотентны (`ON CONFLICT DO NOTHING`). `alembic/env.py`
 использует async-движок и DSN из `Settings`; переменная

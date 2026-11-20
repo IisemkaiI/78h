@@ -1,10 +1,14 @@
 # База данных
 
-## 1. Состояние после Sprint 5
+## 1. Состояние после Sprint 6
 
 PostgreSQL 17 работает в Docker Compose. Схема создаётся и версионируется
 Alembic-миграциями; `create_all()` в приложении не используется. Текущая
-ревизия — `0007_assessment_lesson_retention`.
+ревизия — `0008_certificates`.
+
+Проверка ревизии `0008_certificates` выполнена на PostgreSQL: upgrade,
+downgrade до `0007_assessment_lesson_retention`, повторный upgrade и
+`alembic check` без drift.
 
 Таблицы:
 
@@ -23,6 +27,7 @@ Alembic-миграциями; `create_all()` в приложении не исп
 | `lesson_progress` | состояние урока и снимки удалённых уроков |
 | `learning_events` | журнал обучения: записи, старт, завершение |
 | `course_instructors` | назначения преподавателей на курсы |
+| `certificates` | неизменяемые снимки выданных сертификатов, по одному на enrollment |
 | `quizzes`, `quiz_questions` | тесты и версии вопросов/критериев |
 | `quiz_attempts`, `quiz_answers` | попытки со снимками теста и ответами |
 | `practical_assignments` | практические задания курса |

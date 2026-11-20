@@ -2,24 +2,25 @@
 
 Многофункциональная образовательная LMS-платформа. Репозиторий содержит
 фундамент проекта (**Sprint 0**), базовую систему пользователей (**Sprint 1**),
-каталог и конструктор курсов (**Sprint 2**), процесс обучения (**Sprint 4**) и
-тесты с практическими заданиями (**Sprint 5**):
+каталог и конструктор курсов (**Sprint 2**), процесс обучения (**Sprint 4**),
+тесты с практическими заданиями (**Sprint 5**) и сертификаты (**Sprint 6**):
 React-клиент, FastAPI-бэкенд, PostgreSQL, Alembic-миграции, регистрацию, вход
 по JWT, личный профиль, реляционную ролевую модель (RBAC), публичный каталог
 курсов, редактор курсов для авторов, запись на курсы, три состояния урока,
 прогресс и журнал обучения, тесты с историей попыток, практические задания с
-проверкой преподавателем и назначение преподавателей на курс.
+проверкой преподавателем, назначение преподавателей на курс, неизменяемые
+снимки сертификатов, приватные PDF и публичную проверку подлинности.
 
-Сертификация, корпоративный кабинет, админ-панель и уведомления запланированы
-в следующих спринтах.
+Корпоративный кабинет, админ-панель и уведомления запланированы в следующих
+спринтах.
 
-## Статус Sprint 5
+## Статус Sprint 6
 
 | Критерий | Статус |
 | --- | --- |
 | PostgreSQL 17 в Docker Compose | проверено (healthy) |
-| Alembic-миграции схемы | применены, head `0007_assessment_lesson_retention` |
-| Системные роли и разрешения | 7 ролей, 32 разрешения |
+| Alembic-миграции схемы | применены, head `0008_certificates` |
+| Системные роли и разрешения | 7 ролей, 34 разрешения |
 | Регистрация с базовой ролью `user` | проверено тестами |
 | Вход по email/паролю, JWT access token | проверено тестами |
 | Личный профиль (`GET/PATCH /users/me`) | проверено тестами |
@@ -42,10 +43,15 @@ React-клиент, FastAPI-бэкенд, PostgreSQL, Alembic-миграции, 
 | Практические задания, версии отправок и отзывы преподавателей | PostgreSQL integration + ручной UI |
 | Обязательные проверки в общем прогрессе курса | API + ручной UI: 0/2 → 1/2 → 2/2; с уроком 100% |
 | Назначение преподавателя и просмотр очереди работ | ручной UI |
+| Сертификат — только после выполнения прогресса | общий `ProgressService` + PostgreSQL integration |
+| PDF: кириллица, A4 landscape, приватная выдача | ReportLab + Noto Sans, PDF unit/API integration |
+| Идемпотентность, повторная запись, параллельная выдача | unique FK + `FOR UPDATE`, PostgreSQL integration |
+| Публичная проверка без утечки внутренних данных | PostgreSQL API integration |
+| Светлая/тёмная тема с сохранением предпочтения | браузер и production build |
 | Frontend Sprint 5: авторинг, прохождение, проверка и предпросмотр черновика | ручной UI, ошибок консоли нет |
 | Backend-тесты (unit + PostgreSQL) | 22 unit + 105 integration, все зелёные |
 | TypeScript typecheck и production build | проверено; предупреждение Vite о чанке 545 kB |
-| Проект | версия `0.5.0` |
+| Проект | версия `0.6.0` |
 
 Подробности проверок и ограничения — в конце README и в
 [`docs/development-plan.md`](docs/development-plan.md).
@@ -101,7 +107,8 @@ education-platform/
 │   │       ├── 0004_seed_courses.py  8 категорий + расширение RBAC
 │   │       ├── 0005_learning.py   записи, прогресс, журнал + RBAC обучения
 │   │       ├── 0006_assessments.py тесты, отправки, проверки, преподаватели
-│   │       └── 0007_assessment_lesson_retention.py история удалённых уроков
+│   │       ├── 0007_assessment_lesson_retention.py история удалённых уроков
+│   │       └── 0008_certificates.py сертификаты и разрешения
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── deps.py           SessionDep
@@ -171,7 +178,7 @@ Copy-Item .env.example .env
 | Переменная | Назначение | Пример |
 | --- | --- | --- |
 | `PROJECT_NAME` | Название приложения | `Education Platform` |
-| `PROJECT_VERSION` | Версия проекта | `0.5.0` |
+| `PROJECT_VERSION` | Версия проекта | `0.6.0` |
 | `APP_ENV` | Окружение: `local`/`test`/`staging`/`production` | `local` |
 | `DEBUG` | SQL echo и подробные логи | `false` |
 | `LOG_LEVEL` | Уровень логирования | `INFO` |
@@ -262,7 +269,7 @@ cd D:\education-platform\backend
 миграциями. Ревизии `0002_seed_rbac`, `0004_seed_courses` и `0005_learning`
 идемпотентно создают системные роли, разрешения, категории и RBAC обучения
 (`ON CONFLICT DO NOTHING`) и не удаляют существующие данные. Текущая ревизия —
-`0007_assessment_lesson_retention`.
+`0008_certificates`.
 
 ## Запуск Backend
 
@@ -436,15 +443,15 @@ npm run build              -> ok (предупреждение Vite о чанк�
 alembic upgrade/downgrade/upgrade -> ok
 ```
 
-Фактический прогон Sprint 5 (2026-11-20):
+Фактический прогон Sprint 6 (2026-11-20):
 
 ```
-pytest                     -> 22 passed, 105 deselected
-pytest -m integration      -> 105 passed, 22 deselected (PostgreSQL)
-alembic current/heads      -> 0007_assessment_lesson_retention (head)
+pytest                     -> 25 passed, 110 deselected
+pytest -m integration      -> 110 passed, 25 deselected (PostgreSQL)
+alembic current/heads      -> 0008_certificates (head)
 alembic check              -> No new upgrade operations detected
 npm run typecheck          -> ok
-npm run build              -> ok (Vite warning: JS chunk 545 kB)
+npm run build              -> ok (Vite warning: JS chunk 556 kB)
 ```
 
 ## Безопасность

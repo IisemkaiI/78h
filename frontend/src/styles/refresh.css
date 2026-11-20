@@ -1,4 +1,99 @@
 /* Shared visual language for the refreshed platform. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #151a17;
+  --color-bg-elevated: #1c231e;
+  --color-surface: #202820;
+  --color-surface-hover: #2b352d;
+  --color-card: #202720;
+  --color-border: #344137;
+  --color-border-strong: #4a5a4c;
+  --color-text: #ecf1e9;
+  --color-text-muted: #b0bdb0;
+  --color-text-faint: #859287;
+  --color-primary: #8bc477;
+  --color-primary-strong: #a6d994;
+  --color-primary-soft: rgba(139, 196, 119, .16);
+  --color-success: #79d09a;
+  --color-success-soft: #20392b;
+  --color-warning: #e7bd72;
+  --color-warning-soft: #3b3221;
+  --color-danger: #f08c80;
+  --color-danger-soft: #422925;
+  --color-neutral: #a3afa5;
+  --color-neutral-soft: #2a332d;
+  --color-accent: #d8f36a;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, .2);
+  --shadow-md: 0 12px 34px rgba(0, 0, 0, .25);
+  --shadow-glow: 0 14px 40px rgba(0, 0, 0, .3);
+}
+
+:root[data-theme="dark"] body { background: var(--color-bg); }
+ :root[data-theme="dark"] .site-header { background: rgba(21, 26, 23, .94); border-color: #303a32; }
+ :root[data-theme="dark"] .site-header__link { color: #b0bdb0; }
+ :root[data-theme="dark"] .site-header__link:hover,
+ :root[data-theme="dark"] .site-header__link--active { color: #a6d994; }
+ :root[data-theme="dark"] .site-header__profile { color: var(--color-text); }
+ :root[data-theme="dark"] .site-header__avatar,
+ :root[data-theme="dark"] .profile__avatar { background: #2c3b2d; color: #c1e5aa; }
+ :root[data-theme="dark"] .theme-toggle { color: #e2e9df; background: #252f28; border-color: #435146; }
+ :root[data-theme="dark"] .theme-toggle:hover { background: #303d33; border-color: #718a70; }
+ :root[data-theme="dark"] .site-footer { border-color: #344137; }
+ :root[data-theme="dark"] .site-footer a { color: #e5ede2; }
+ :root[data-theme="dark"] .input,
+ :root[data-theme="dark"] .assessment-authoring .field__input { background: #1a211c; border-color: #435146; color: var(--color-text); }
+ :root[data-theme="dark"] .input::placeholder,
+ :root[data-theme="dark"] .assessment-authoring .field__input::placeholder { color: #859287; }
+ :root[data-theme="dark"] .field__label { color: #d1dbd0; }
+ :root[data-theme="dark"] .button--ghost { color: var(--color-text); border-color: #536255; }
+ :root[data-theme="dark"] .button--ghost:hover:not(:disabled) { background: #2c372f; border-color: #8bc477; }
+ :root[data-theme="dark"] .button--primary { background: #427d50; color: #fff; }
+ :root[data-theme="dark"] .button--primary:hover:not(:disabled) { background: #518f5e; }
+ :root[data-theme="dark"] .badge { background: #29322c; border-color: #465447; color: #d2ddd1; }
+ :root[data-theme="dark"] .badge--role,
+ :root[data-theme="dark"] .badge--level { background: #2d392c; border-color: #536b45; color: #c5e2a8; }
+ :root[data-theme="dark"] .badge--status-published { background: #20392b; border-color: #3f7652; color: #83d8a1; }
+ :root[data-theme="dark"] .badge--status-archived { background: #3a3121; border-color: #75603a; color: #e6bd75; }
+ :root[data-theme="dark"] .badge--status-draft { background: #2c332d; border-color: #525d53; color: #c1cbc1; }
+ :root[data-theme="dark"] .home-intro__label,
+ :root[data-theme="dark"] .pathway__mark { color: #9bd583; }
+ :root[data-theme="dark"] .home-intro__statement span { color: #a6d994; }
+ :root[data-theme="dark"] .home-pathways,
+ :root[data-theme="dark"] .pathway { border-color: #3a473d; }
+ :root[data-theme="dark"] .home-availability { background: #202b23; }
+ :root[data-theme="dark"] .home-availability .home-hero__eyebrow { color: #acd998; }
+ :root[data-theme="dark"] .connection { background: #1a211c !important; border-color: #435146 !important; }
+ :root[data-theme="dark"] .course-page__header,
+ :root[data-theme="dark"] .learning-page > .page__heading,
+ :root[data-theme="dark"] .learn-header { background: #222d25; }
+ :root[data-theme="dark"] .enroll-panel { background: #1a211c; border-color: #435146; }
+ :root[data-theme="dark"] .course-page__cover,
+ :root[data-theme="dark"] .learning-card__cover { filter: brightness(.78) saturate(.8); }
+ :root[data-theme="dark"] .learning-card { background: #202720; border-color: #344137; }
+ :root[data-theme="dark"] .learning-card__title a { color: #ecf1e9; }
+ :root[data-theme="dark"] .learning-card__stats dt { color: #a1aea3; }
+ :root[data-theme="dark"] .learn-program__module-title { color: #d4dfd3; }
+ :root[data-theme="dark"] .program__position { background: #2d392c; color: #acd998; }
+ :root[data-theme="dark"] .learn-program__lesson { color: #b6c2b6; }
+ :root[data-theme="dark"] .learn-program__lesson:hover { background: #29352c; }
+ :root[data-theme="dark"] .learn-program__lesson--active { background: #304333; color: #d4ebbd; }
+ :root[data-theme="dark"] .progress__track { background: #39463c; }
+ :root[data-theme="dark"] .course-card { background: #202720; border-color: #344137; }
+ :root[data-theme="dark"] .course-card__meta { border-color: #344137; }
+ :root[data-theme="dark"] .course-card__author { color: #a0ada1; }
+ :root[data-theme="dark"] .module-editor { background: #1b231d; }
+ :root[data-theme="dark"] .lesson-editor { background: #1b231d; border-color: #39473c; }
+ :root[data-theme="dark"] .assessment-question { background: #202920; border-color: #3a473d; }
+ :root[data-theme="dark"] .assessment-review-card { background: #202720; }
+ :root[data-theme="dark"] .assessment-review { background: #253027; }
+ :root[data-theme="dark"] .assessment-answer { background: #191f1a; border-color: #3a473d; color: #e3eae1; }
+ :root[data-theme="dark"] .auth-card { background: #202720; }
+ :root[data-theme="dark"] .auth-card__footer { border-color: #39473c; }
+ :root[data-theme="dark"] .button--danger { color: #ffaaa0; background: #422925; border-color: #73433c; }
+ :root[data-theme="dark"] .alert--error { color: #ffaaa0; border-color: #73433c; }
+ :root[data-theme="dark"] .alert--success { color: #9be3b3; border-color: #3f7652; }
+ :root[data-theme="dark"] .alert--info { color: #dce8d9; border-color: #536b45; }
+
 html { scroll-behavior: smooth; }
 body { background: var(--color-bg); color: var(--color-text); }
 ::selection { background: #d9ed91; color: #1d2923; }
@@ -17,6 +112,24 @@ a { color: var(--color-primary); }
 .site-header__wordmark { font-size: .98rem; font-weight: 800; letter-spacing: -.045em; }
 .site-header__wordmark > span { color: var(--color-text-faint); font-size: .72rem; font-weight: 550; letter-spacing: -.01em; margin-left: .4rem; }
 .site-header__nav { gap: clamp(.75rem, 2.3vw, 2.1rem); }
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  min-height: 36px;
+  padding: .4rem .65rem;
+  border: 1px solid #d5dacf;
+  border-radius: 7px;
+  background: #f0f2eb;
+  color: #415146;
+  cursor: pointer;
+  font: 700 .76rem/1 var(--font-sans);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+.theme-toggle > span:first-child { color: var(--color-primary); font-size: 1rem; }
+.theme-toggle:hover { background: #e5eadf; border-color: #aebda9; }
+.theme-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .site-header__link { color: #647168; font-size: .84rem; font-weight: 700; transition: color var(--transition-fast); }
 .site-header__link:hover, .site-header__link--active { color: var(--color-primary); }
 .site-header__link--active { position: relative; }

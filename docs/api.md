@@ -16,6 +16,7 @@
 - [Курсы (авторский API)](#курсы-авторский-api)
 - [Обучение](#обучение)
 - [Тесты и практические задания](#тесты-и-практические-задания)
+- [Сертификаты](#сертификаты)
 - [Схемы данных](#схемы-данных)
 - [Формат ошибок](#формат-ошибок)
 - [Роли и разрешения](#роли-и-разрешения)
@@ -35,7 +36,7 @@
 {
   "status": "ok",
   "service": "education-platform-api",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "environment": "local"
 }
 ```
@@ -50,7 +51,7 @@
 ```json
 {
   "status": "ready",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "database": { "status": "available", "detail": null, "latency_ms": 1.84 }
 }
 ```
@@ -60,7 +61,7 @@
 ```json
 {
   "status": "not_ready",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "database": {
     "status": "unavailable",
     "detail": "ConnectionRefusedError",
@@ -77,7 +78,7 @@
 ```json
 {
   "application": "Education Platform",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "environment": "local",
   "api_version": "/api/v1"
 }
@@ -593,6 +594,34 @@ enrollment_not_found`.
 архивации, успешной попытки или принятия задания синхронизируют прогресс и
 `completed_at` в одной транзакции. Полная структура ответов описана OpenAPI в
 `/openapi.json`.
+
+## Сертификаты
+
+### POST /api/v1/certificates/issue
+
+Требует `certificates:issue_self`. Тело: `{ "enrollment_id": "<uuid>" }`.
+Успешный запрос возвращает snapshot сертификата. Если курс не завершён,
+возвращается `409 course_not_completed`; запрос идемпотентен в рамках записи.
+
+### GET /api/v1/certificates/me
+
+Требует `certificates:read_self`. Возвращает только сертификаты текущего
+пользователя и не возвращает storage key.
+
+### GET /api/v1/certificates/{certificate_id}/download
+
+Требует `certificates:read_self` и владение сертификатом. Ответ — приватный
+`application/pdf` с `Cache-Control: private, no-store`; чужой или отсутствующий
+сертификат возвращает 404.
+
+### GET /api/v1/certificates/verify/{verification_code}
+
+Публичный endpoint без авторизации. При успехе возвращает только `valid`,
+`recipient_name`, `course_title`, `certificate_number` и `issued_at`. Неизвестный
+код возвращает `404 certificate_not_found`.
+
+Подробности о выдаче, модели и настройках PDF — в
+[`certificates.md`](certificates.md).
 
 ## Схемы данных
 

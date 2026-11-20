@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 
 import logoUrl from '../assets/logo.svg';
 import { useAuth } from '../auth/AuthContext';
+import { useTheme } from '../theme/ThemeContext';
 import './Layout.css';
 
 function navLinkClass({ isActive }: { isActive: boolean }): string {
@@ -11,6 +12,7 @@ function navLinkClass({ isActive }: { isActive: boolean }): string {
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { status, user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const canAuthor = user?.permissions.includes('courses:create') ?? false;
   const canLearn = user?.permissions.includes('enrollments:read_own') ?? false;
@@ -33,6 +35,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </span>
         </Link>
 
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label="Тёмная тема"
+          aria-pressed={theme === 'dark'}
+          title={`Переключить тему, сейчас: ${theme === 'dark' ? 'тёмная' : 'светлая'}`}
+        >
+          <span aria-hidden="true">{theme === 'dark' ? '☼' : '◐'}</span>
+          <span className="theme-toggle__label">{theme === 'dark' ? 'Светлая' : 'Тёмная'}</span>
+        </button>
+
         <nav className="site-header__nav" aria-label="Основная навигация">
           <NavLink to="/catalog" className={navLinkClass}>
             Каталог
@@ -43,6 +57,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {canLearn && (
                 <NavLink to="/my-learning" className={navLinkClass}>
                   Моё обучение
+                </NavLink>
+              )}
+              {user.permissions.includes('certificates:read_self') && (
+                <NavLink to="/certificates" className={navLinkClass}>
+                  Сертификаты
                 </NavLink>
               )}
               {canAuthor && (

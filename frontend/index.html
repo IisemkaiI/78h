@@ -8,6 +8,17 @@
     <meta name="color-scheme" content="light" />
     <meta name="description" content="Бесплатная платформа открытого образования: изучайте курсы, отслеживайте прогресс и делитесь знаниями." />
     <title>Education Platform</title>
+    <script>
+      try {
+        const preference = localStorage.getItem('education-platform-theme');
+        const theme = preference === 'light' || preference === 'dark'
+          ? preference
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.dataset.theme = theme;
+      } catch {
+        document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

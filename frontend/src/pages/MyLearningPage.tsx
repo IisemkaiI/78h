@@ -12,6 +12,7 @@ import {
 } from '../services/learningService';
 import type { Enrollment, EnrollmentPage } from '../types/api';
 import { describeLearningError } from '../utils/learningErrors';
+import { issueCertificate } from '../services/certificateService';
 import {
   courseLevelLabel,
   formatDate,
@@ -25,11 +26,13 @@ function EnrollmentCard({
   busy,
   onCancel,
   onReactivate,
+  onCertificate,
 }: {
   enrollment: Enrollment;
   busy: boolean;
   onCancel: (enrollment: Enrollment) => void;
   onReactivate: (enrollment: Enrollment) => void;
+  onCertificate: (enrollment: Enrollment) => void;
 }) {
   const { course, progress } = enrollment;
   const active = enrollment.status === 'active';
@@ -132,6 +135,16 @@ function EnrollmentCard({
           <Link className="button button--ghost button--sm" to={`/catalog/${course.slug}`}>
             О курсе
           </Link>
+              {progress.is_completed && active && (
+                <button
+                  type="button"
+                  className="button button--primary button--sm"
+                  onClick={() => onCertificate(enrollment)}
+                  disabled={busy}
+                >
+                  Получить сертификат
+                </button>
+              )}
         </div>
       </div>
     </li>
@@ -213,6 +226,20 @@ export function MyLearningPage() {
     }
   };
 
+  const handleCertificate = async (enrollment: Enrollment): Promise<void> => {
+    if (!token) return;
+    setBusyId(enrollment.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await issueCertificate(token, enrollment.id);
+      window.location.assign('/certificates');
+    } catch (caught) {
+      setError(describeLearningError(caught));
+      setBusyId(null);
+    }
+  };
+
   return (
     <main className="page learning-page">
       <header className="page__heading">
@@ -266,6 +293,7 @@ export function MyLearningPage() {
                 busy={busyId === enrollment.id}
                 onCancel={handleCancel}
                 onReactivate={handleReactivate}
+                onCertificate={handleCertificate}
               />
             ))}
           </ul>

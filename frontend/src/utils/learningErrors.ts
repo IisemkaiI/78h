@@ -4,6 +4,7 @@ import { ApiError } from '../services/apiClient';
 
 const MESSAGES: Record<string, string> = {
   course_not_found: 'Курс не найден или больше не опубликован.',
+  course_not_completed: 'Завершите все уроки и обязательные проверки, чтобы получить сертификат.',
   course_not_available: 'Курс временно закрыт для обучения. Запись сохранена.',
   enrollment_required: 'Для доступа к материалам нужна активная запись на курс.',
   enrollment_not_found: 'Запись на курс не найдена.',
