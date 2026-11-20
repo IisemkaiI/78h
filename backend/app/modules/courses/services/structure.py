@@ -23,6 +23,7 @@ from app.modules.courses.repositories.module import ModuleRepository
 from app.modules.courses.schemas.lesson import LessonCreate, LessonRead, LessonUpdate
 from app.modules.courses.schemas.module import ModuleCreate, ModuleRead, ModuleUpdate
 from app.modules.courses.services.access import ensure_course_access
+from app.modules.learning.services.progress import ProgressService
 from app.modules.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -143,6 +144,7 @@ class StructureService:
         await self._modules.delete(module)
         # Lessons are removed by ON DELETE CASCADE inside the same transaction.
         await self._renumber_modules(course_id)
+        await ProgressService(self._session).reconcile_course(course_id)
         await self._session.commit()
         logger.info("Deleted module %s from course %s", module_id, course_id)
 
@@ -189,6 +191,10 @@ class StructureService:
             position=position,
             estimated_duration_minutes=payload.estimated_duration_minutes,
         )
+        # A new lesson changes the denominator of every enrollment of this
+        # course. Reconcile before commit so a completed course reopens in the
+        # same transaction that added the lesson.
+        await ProgressService(self._session).reconcile_course(course_id)
         await self._session.commit()
         logger.info("Added lesson %s to module %s", lesson.id, module_id)
         return LessonRead.model_validate(lesson)
@@ -220,6 +226,9 @@ class StructureService:
         lesson = await self._lesson(course_id, module_id, lesson_id, user)
         await self._lessons.delete(lesson)
         await self._renumber_lessons(module_id)
+        # The deleted lesson's progress rows survive with lesson_id = NULL;
+        # the current denominator shrinks, so completion may change.
+        await ProgressService(self._session).reconcile_course(course_id)
         await self._session.commit()
         logger.info("Deleted lesson %s from module %s", lesson_id, module_id)
 

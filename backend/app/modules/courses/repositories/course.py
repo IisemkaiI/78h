@@ -62,6 +62,13 @@ class CourseRepository:
         )
         return await self._session.scalar(statement)
 
+    async def get_by_slug(self, slug: str, *, with_structure: bool = True) -> Course | None:
+        """Load any course by slug (drafts included) for enrolment checks."""
+        statement = select(Course).where(Course.slug == slug)
+        options = self._with_structure() if with_structure else self._with_author_and_category()
+        statement = statement.options(*options).execution_options(populate_existing=True)
+        return await self._session.scalar(statement)
+
     async def slug_exists(self, slug: str) -> bool:
         statement = select(Course.id).where(Course.slug == slug).limit(1)
         return await self._session.scalar(statement) is not None

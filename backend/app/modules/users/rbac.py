@@ -48,7 +48,16 @@ class PermissionCode:
     # Administrators manage every course, including drafts of other authors.
     COURSES_MANAGE_ALL: Final[str] = "courses:manage_all"
 
-    # Learning & teaching (Sprint 5+)
+    # Learning & teaching (Sprint 4+)
+    ENROLLMENTS_CREATE: Final[str] = "enrollments:create"
+    ENROLLMENTS_READ_OWN: Final[str] = "enrollments:read_own"
+    ENROLLMENTS_CANCEL_OWN: Final[str] = "enrollments:cancel_own"
+    ENROLLMENTS_MANAGE_ALL: Final[str] = "enrollments:manage_all"
+    PROGRESS_READ_OWN: Final[str] = "progress:read_own"
+    PROGRESS_UPDATE_OWN: Final[str] = "progress:update_own"
+    PROGRESS_MANAGE_ALL: Final[str] = "progress:manage_all"
+
+    # Legacy learning permissions (kept for backward compatibility).
     LEARNING_ENROLL: Final[str] = "learning:enroll"
     LEARNING_PARTICIPATE: Final[str] = "learning:participate"
     TEACHING_MANAGE: Final[str] = "teaching:manage"

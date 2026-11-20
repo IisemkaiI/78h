@@ -11,6 +11,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiError
@@ -28,6 +29,7 @@ from app.modules.courses.schemas.course import (
 )
 from app.modules.courses.services.access import ensure_course_access
 from app.modules.courses.services.slug import unique_course_slug
+from app.modules.learning.repositories.enrollment import EnrollmentRepository
 from app.modules.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -171,8 +173,22 @@ class CourseService:
         course = await self._courses.get_by_id(course_id, with_structure=False)
         ensure_course_access(course, user)
         assert course is not None
-        await self._courses.delete(course)
-        await self._session.commit()
+        conflict = ApiError(
+            409,
+            "course_has_enrollments",
+            "A course with enrollments cannot be deleted. Archive it instead.",
+        )
+        if await EnrollmentRepository(self._session).exists_for_course(course.id):
+            raise conflict
+        try:
+            await self._courses.delete(course)
+            await self._session.commit()
+        except IntegrityError as exc:
+            # A learner enrolled between the check and the DELETE; the RESTRICT
+            # foreign key is the final guard. Report the same conflict instead
+            # of leaking a 500.
+            await self._session.rollback()
+            raise conflict from exc
         logger.info("Deleted course %s", course.id)
 
     @staticmethod
