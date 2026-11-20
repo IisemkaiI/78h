@@ -17,6 +17,7 @@ import { HomePage } from '../pages/HomePage';
 import { LearnCoursePage } from '../pages/LearnCoursePage';
 import { LoginPage } from '../pages/LoginPage';
 import { MyLearningPage } from '../pages/MyLearningPage';
+import { NotificationsPage } from '../pages/NotificationsPage';
 import { NewCoursePage } from '../pages/NewCoursePage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProfilePage } from '../pages/ProfilePage';
@@ -58,6 +59,14 @@ export function App() {
                 element={
                   <RequirePermission permission="enrollments:read_own">
                     <MyLearningPage />
+                  </RequirePermission>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <RequirePermission permission="notifications:read_own">
+                    <NotificationsPage />
                   </RequirePermission>
                 }
               />

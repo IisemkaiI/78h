@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 
 import logoUrl from '../assets/logo.svg';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
+import { getUnreadCount } from '../services/notificationService';
 import './Layout.css';
 
 function navLinkClass({ isActive }: { isActive: boolean }): string {
@@ -12,8 +14,22 @@ function navLinkClass({ isActive }: { isActive: boolean }): string {
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { status, user, signOut } = useAuth();
+  const { token } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const refreshUnread = useCallback(() => {
+    if (!token || status !== 'authenticated') { setUnreadCount(0); return; }
+    void getUnreadCount(token).then(result => setUnreadCount(result.unread_count)).catch(() => undefined);
+  }, [status, token]);
+  useEffect(() => { refreshUnread(); }, [refreshUnread, location.pathname]);
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshUnread(); };
+    window.addEventListener('notifications:refresh', refreshUnread);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.removeEventListener('notifications:refresh', refreshUnread); document.removeEventListener('visibilitychange', onVisible); };
+  }, [refreshUnread]);
   const canAuthor = user?.permissions.includes('courses:create') ?? false;
   const canLearn = user?.permissions.includes('enrollments:read_own') ?? false;
   const canReview = user?.permissions.some((permission) => ['assessments:review', 'assessments:manage_own', 'assessments:manage_all'].includes(permission)) ?? false;
@@ -57,6 +73,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
               {canLearn && (
                 <NavLink to="/my-learning" className={navLinkClass}>
                   Моё обучение
+                </NavLink>
+              )}
+              {user.permissions.includes('notifications:read_own') && (
+                <NavLink to="/notifications" className={navLinkClass} aria-label={`Уведомления, непрочитанных: ${unreadCount}`}>
+                  Уведомления{unreadCount > 0 && <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
                 </NavLink>
               )}
               {user.permissions.includes('certificates:read_self') && (
