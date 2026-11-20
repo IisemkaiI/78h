@@ -13,6 +13,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { status, user, signOut } = useAuth();
   const navigate = useNavigate();
   const canAuthor = user?.permissions.includes('courses:create') ?? false;
+  const canLearn = user?.permissions.includes('enrollments:read_own') ?? false;
 
   const handleLogout = (): void => {
     signOut();
@@ -34,6 +35,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
           {status === 'authenticated' && user !== null ? (
             <>
+              {canLearn && (
+                <NavLink to="/my-learning" className={navLinkClass}>
+                  Моё обучение
+                </NavLink>
+              )}
               {canAuthor && (
                 <NavLink to="/author" className={navLinkClass}>
                   Мои курсы

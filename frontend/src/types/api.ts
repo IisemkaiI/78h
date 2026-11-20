@@ -231,3 +231,132 @@ export interface LessonWritePayload {
 }
 
 export type LessonUpdatePayload = Partial<LessonWritePayload>;
+
+/* --- Sprint 4: learning process ----------------------------------------- */
+
+export type EnrollmentStatus = 'active' | 'cancelled';
+export type LessonState = 'not_started' | 'in_progress' | 'completed';
+
+export interface EnrollmentCourse {
+  id: string;
+  title: string;
+  slug: string;
+  short_description: string;
+  cover_image_url: string | null;
+  level: CourseLevel;
+  language: string;
+  category_name: string;
+  author_display_name: string;
+}
+
+export interface CourseProgress {
+  total_lessons: number;
+  completed_lessons: number;
+  in_progress_lessons: number;
+  not_started_lessons: number;
+  progress_percent: number;
+  is_completed: boolean;
+  completed_at: string | null;
+  removed_lessons_count: number;
+}
+
+export interface Enrollment {
+  id: string;
+  user_id: string;
+  course_id: string;
+  status: EnrollmentStatus;
+  enrolled_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  last_activity_at: string | null;
+  created_at: string;
+  updated_at: string;
+  course: EnrollmentCourse;
+  progress: CourseProgress;
+}
+
+export type EnrollmentPage = Paginated<Enrollment>;
+
+export interface EnrollmentStatusResponse {
+  enrolled: boolean;
+  enrollment: Enrollment | null;
+}
+
+export interface LessonProgressEntry {
+  lesson_id: string;
+  state: LessonState;
+  started_at: string | null;
+  completed_at: string | null;
+  last_viewed_at: string | null;
+}
+
+export interface LessonProgressUpdateResult {
+  lesson: LessonProgressEntry;
+  course_progress: CourseProgress;
+}
+
+export interface LearningEvent {
+  id: string;
+  event_type: string;
+  lesson_id: string | null;
+  lesson_id_original: string | null;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface RemovedLesson {
+  lesson_id_original: string;
+  module_id_original: string;
+  lesson_title: string;
+  module_title: string;
+  state: LessonState;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface LearningHistory {
+  events: LearningEvent[];
+  removed_lessons: RemovedLesson[];
+}
+
+export interface LearningCourseInfo {
+  id: string;
+  title: string;
+  slug: string;
+  status: CourseStatus;
+  cover_image_url: string | null;
+  level: CourseLevel;
+  category_name: string;
+}
+
+export interface LearningLesson {
+  id: string;
+  module_id: string;
+  title: string;
+  description: string | null;
+  position: number;
+  estimated_duration_minutes: number;
+  state: LessonState;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface LearningLessonContent extends LearningLesson {
+  content: string;
+}
+
+export interface LearningModule {
+  id: string;
+  title: string;
+  description: string | null;
+  position: number;
+  lessons: LearningLesson[];
+}
+
+export interface LearningCourse {
+  enrollment_id: string | null;
+  course: LearningCourseInfo;
+  progress: CourseProgress;
+  modules: LearningModule[];
+}

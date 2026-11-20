@@ -44,6 +44,33 @@ export function courseStatusLabel(status: string): string {
   return COURSE_STATUS_LABELS[status] ?? status;
 }
 
+const LESSON_STATE_LABELS: Record<string, string> = {
+  not_started: 'Не начат',
+  in_progress: 'В процессе',
+  completed: 'Завершён',
+};
+
+const LEARNING_EVENT_LABELS: Record<string, string> = {
+  enrolled: 'Запись на курс',
+  cancelled: 'Запись отменена',
+  reactivated: 'Запись возобновлена',
+  started: 'Курс начат',
+  lesson_started: 'Урок начат',
+  lesson_completed: 'Урок завершён',
+  lesson_reopened: 'Урок возвращён в работу',
+  lesson_reset: 'Прогресс урока сброшен',
+  course_completed: 'Курс завершён',
+  course_reopened: 'Курс снова в работе',
+};
+
+export function lessonStateLabel(state: string): string {
+  return LESSON_STATE_LABELS[state] ?? state;
+}
+
+export function learningEventLabel(eventType: string): string {
+  return LEARNING_EVENT_LABELS[eventType] ?? eventType;
+}
+
 /** "45 мин", "2 ч 15 мин", "—" for unknown durations. */
 export function formatDuration(minutes: number): string {
   if (!Number.isFinite(minutes) || minutes <= 0) {

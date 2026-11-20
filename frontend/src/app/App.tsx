@@ -4,12 +4,15 @@ import { AuthProvider } from '../auth/AuthContext';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { RequirePermission } from '../auth/RequirePermission';
 import { AppLayout } from './AppLayout';
+import { AuthorCoursePreviewPage } from '../pages/AuthorCoursePreviewPage';
 import { AuthorCoursesPage } from '../pages/AuthorCoursesPage';
 import { CatalogPage } from '../pages/CatalogPage';
 import { CourseDetailPage } from '../pages/CourseDetailPage';
 import { CourseEditorPage } from '../pages/CourseEditorPage';
 import { HomePage } from '../pages/HomePage';
+import { LearnCoursePage } from '../pages/LearnCoursePage';
 import { LoginPage } from '../pages/LoginPage';
+import { MyLearningPage } from '../pages/MyLearningPage';
 import { NewCoursePage } from '../pages/NewCoursePage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProfilePage } from '../pages/ProfilePage';
@@ -33,6 +36,38 @@ export function App() {
                 <ProtectedRoute>
                   <ProfilePage />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-learning"
+              element={
+                <RequirePermission permission="enrollments:read_own">
+                  <MyLearningPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/learn/:slug"
+              element={
+                <RequirePermission permission="enrollments:read_own">
+                  <LearnCoursePage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/learn/:slug/lessons/:lessonId"
+              element={
+                <RequirePermission permission="enrollments:read_own">
+                  <LearnCoursePage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/author/courses/:courseId/preview"
+              element={
+                <RequirePermission permission="courses:create">
+                  <AuthorCoursePreviewPage />
+                </RequirePermission>
               }
             />
             <Route

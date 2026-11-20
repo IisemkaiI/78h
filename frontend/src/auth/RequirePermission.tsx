@@ -38,8 +38,8 @@ export function RequirePermission({
           <p className="eyebrow">Доступ ограничен</p>
           <h1 className="page__title">Недостаточно прав</h1>
           <p className="muted">
-            Для этого раздела нужна роль автора курсов. Роли назначаются администратором
-            платформы.
+            Для этого раздела нужны соответствующие права. Роли назначаются
+            администратором платформы.
           </p>
           <Link className="button button--ghost" to="/">
             На главную

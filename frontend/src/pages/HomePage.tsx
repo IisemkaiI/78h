@@ -14,21 +14,26 @@ export function HomePage() {
       <div className="app__inner">
         <header className="app__header">
           <img className="app__logo" src={logoUrl} alt="" width={48} height={48} />
-          <p className="app__kicker">Sprint 2 · Каталог курсов</p>
+          <p className="app__kicker">Sprint 4 · Процесс обучения</p>
           <h1 className="app__title">Education Platform</h1>
           <p className="app__subtitle">
-            Каталог публичных курсов с поиском и фильтрами, а также кабинет автора: черновики,
-            модули, уроки, публикация и архивирование. Управление доступом опирается на
-            ролевую модель предыдущего спринта.
+            Каталог публичных курсов, кабинет автора и полноценное обучение: запись на курс,
+            три состояния урока, прогресс и журнал. Материалы урока открываются только тем,
+            кто записан на опубликованный курс.
           </p>
           <div className="app__actions">
             <Link className="button button--primary" to="/catalog">
               Открыть каталог
             </Link>
             {status === 'authenticated' ? (
-              <Link className="button button--ghost" to="/profile">
-                Перейти в профиль
-              </Link>
+              <>
+                <Link className="button button--ghost" to="/my-learning">
+                  Моё обучение
+                </Link>
+                <Link className="button button--ghost" to="/profile">
+                  Перейти в профиль
+                </Link>
+              </>
             ) : (
               <>
                 <Link className="button button--ghost" to="/register">

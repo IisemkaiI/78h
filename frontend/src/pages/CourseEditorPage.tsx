@@ -213,11 +213,16 @@ export function CourseEditorPage() {
           </p>
         </div>
 
-        {course.status === 'published' && (
-          <Link className="button button--ghost" to={`/catalog/${course.slug}`}>
-            Открыть публичную страницу
+        <div className="badge-row">
+          <Link className="button button--ghost" to={`/author/courses/${course.id}/preview`}>
+            Предпросмотр
           </Link>
-        )}
+          {course.status === 'published' && (
+            <Link className="button button--ghost" to={`/catalog/${course.slug}`}>
+              Публичная страница
+            </Link>
+          )}
+        </div>
       </header>
 
       {error !== null && (

@@ -10,6 +10,8 @@ const MESSAGES: Record<string, string> = {
   category_inactive: 'Выбранная категория отключена.',
   invalid_order: 'Некорректный порядок элементов. Обновите страницу и попробуйте снова.',
   course_not_ready: 'Курс пока нельзя опубликовать: заполните недостающие данные.',
+  course_has_enrollments:
+    'У курса есть записи обучающихся, поэтому его нельзя удалить. Переведите курс в архив.',
 };
 
 const MISSING_LABELS: Record<string, string> = {
