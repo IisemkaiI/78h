@@ -17,6 +17,7 @@
 - [Обучение](#обучение)
 - [Тесты и практические задания](#тесты-и-практические-задания)
 - [Сертификаты](#сертификаты)
+- [Корпоративное обучение](#корпоративное-обучение-sprint-8-этап-4)
 - [Схемы данных](#схемы-данных)
 - [Формат ошибок](#формат-ошибок)
 - [Роли и разрешения](#роли-и-разрешения)
@@ -623,6 +624,72 @@ enrollment_not_found`.
 Подробности о выдаче, модели и настройках PDF — в
 [`certificates.md`](certificates.md).
 
+## Корпоративное обучение (Sprint 8, этап 4)
+
+Корпоративные операции требуют JWT. Управляющие операции доступны активным
+`owner`, `admin` и `manager` только в пределах своей организации; сотрудник
+видит только собственные назначения. Системная роль `organization_manager` не
+даёт доступа к чужим организациям.
+
+Элемент ответа `/members` содержит `can_update_role` и `can_remove`. Это
+вычисленные для текущего пользователя scoped-права на конкретного участника;
+интерфейс использует их, чтобы скрывать недоступные действия. Backend повторно
+проверяет полномочия при каждой операции.
+
+### POST /api/v1/organizations/{organization_id}/assignments
+
+Массово создаёт назначения для 1–500 активных участников с ролью `employee`.
+Курс должен быть опубликован и относиться к активной категории. Все записи
+создаются одной транзакцией; если хотя бы один получатель недоступен или уже
+имеет активное назначение на этот курс, запрос отклоняется целиком.
+
+```json
+{
+  "course_id": "<uuid>",
+  "membership_ids": ["<membership-uuid>"],
+  "due_at": null,
+  "is_required": true
+}
+```
+
+Возвращает массив назначений со статусом `pending`. Повторное назначение после
+`declined` или `cancelled` создаёт новый номер цикла; `pending` и `accepted`
+дублировать нельзя.
+
+### GET /api/v1/organizations/{organization_id}/assignments
+
+Возвращает назначения организации со статусом и, если назначение принято,
+состоянием связанного Enrollment и актуальным процентом прогресса. Для
+сотрудника список ограничен его membership.
+
+### POST /api/v1/organizations/{organization_id}/assignments/{assignment_id}/accept
+
+Сотрудник принимает только своё назначение в состоянии `pending`. В одной
+транзакции назначение становится `accepted`, а learning создаёт или реактивирует
+существующий Enrollment. Повторное принятие возвращает `409
+assignment_not_pending`.
+
+### POST /api/v1/organizations/{organization_id}/assignments/{assignment_id}/decline
+
+Сотрудник отклоняет своё ожидающее назначение. Enrollment не создаётся.
+
+### DELETE /api/v1/organizations/{organization_id}/assignments/{assignment_id}
+
+Владелец, администратор или менеджер отменяет назначение со статусом `pending`
+или `accepted`. Отмена назначения не отменяет личный Enrollment сотрудника.
+
+### GET /api/v1/organizations/{organization_id}/learning-stats
+
+Сводные значения по всем циклам назначений организации: количества назначений
+по статусам, уникальные участники, активные и завершённые Enrollment и средний
+прогресс. Прогресс пересчитывается существующим learning-сервисом; отдельная
+копия учебных данных в модуле организаций не хранится.
+
+Личная отмена Enrollment не меняет принятое корпоративное назначение. Повторная
+запись реактивирует тот же Enrollment и сохраняет историю. Активный Enrollment
+продолжает обучение после архивации курса; новые назначения и Enrollment для
+архивированного курса запрещены.
+
 ## Схемы данных
 
 ### UserProfile
@@ -825,3 +892,29 @@ Invoke-RestMethod -Uri "$base/learning/enrollments/mine" -Headers $headers
 `GET /api/v1/notifications/me?page=1&page_size=20&unread_only=false` возвращает уведомления текущего пользователя, общее количество, число непрочитанных и данные страницы. `GET /api/v1/notifications/unread-count` возвращает `{ "unread_count": number }`. `PATCH /api/v1/notifications/{notification_id}/read` отмечает своё уведомление прочитанным (повторный вызов безопасен); `POST /api/v1/notifications/read-all` отмечает все непрочитанные и возвращает `{ "updated": number }`. Для чужого ID возвращается 404. Чтение требует `notifications:read_own`, изменение — `notifications:update_own`. Публичных методов создания и удаления нет.
 
 Поддерживаются типы `course_completed`, `quiz_completed`, `assignment_accepted`, `assignment_revision_required` и `certificate_issued`. Payload содержит только безопасные внутренние идентификаторы и результаты. Клиент строит разрешённые внутренние маршруты самостоятельно и не использует URL из payload.
+
+## Administration and organizations (Sprint 8 closeout)
+
+Платформенные endpoint `/admin/*` требуют глобальное разрешение
+`admin:manage_platform`. `GET /admin/overview` возвращает фактические счётчики
+пользователей, организаций, курсов, назначений и прогресса. `GET /admin/users`
+и `GET /admin/courses` поддерживают `q`, `page`, `page_size`; `PATCH
+/admin/users/{user_id}` меняет только `is_active` и защищает текущего и
+последнего активного администратора; `POST /admin/courses/{course_id}/archive`
+архивирует курс штатным сервисом обучения. `GET /admin/organizations` выводит
+организации с числом активных участников.
+
+Одноуровневые подразделения организации: `GET/POST
+/organizations/{organization_id}/departments`, `PATCH/DELETE
+/organizations/{organization_id}/departments/{department_id}` и
+`PATCH /organizations/{organization_id}/members/{membership_id}/department`
+с JSON `{"department_id":"<uuid>"}` или `null`. Создание, переименование и
+удаление доступны Owner/Admin; назначение участника подразделению —
+Owner/Admin/Manager. Композитный FK вместе с проверкой сервиса запрещает
+привязать членство к подразделению другой организации. Удаление подразделения
+снимает привязку, не удаляя участников.
+
+Corporate assignment API включает `department_id` и `overdue_at`. Периодическая
+Celery-задача проставляет `overdue_at` принятым, просроченным и незавершённым
+назначениям; повторный запуск идемпотентен. Worker и Celery Beat запускаются
+в Linux-контейнерах из `docker-compose.server.yml`.
