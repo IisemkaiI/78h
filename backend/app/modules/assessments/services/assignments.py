@@ -123,7 +123,7 @@ class AssignmentService:
             Enrollment.status == "active",
         ).with_for_update())
         course = await self.session.get(Course, assignment.course_id)
-        if assignment.status != "published" or enrollment is None or course is None or course.status != "published":
+        if assignment.status != "published" or enrollment is None or course is None or course.status not in {"published", "archived"}:
             raise ApiError(403, "enrollment_required", "An active enrollment in the published course is required.")
         return enrollment
 

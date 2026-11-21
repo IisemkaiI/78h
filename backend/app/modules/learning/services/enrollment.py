@@ -5,11 +5,12 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiError
-from app.modules.courses.constants import CourseLevel
+from app.modules.courses.constants import CourseLevel, CourseStatus
 from app.modules.courses.models.course import Course
 from app.modules.courses.repositories.course import CourseRepository
 from app.modules.learning.constants import EnrollmentStatus, LearningEventType
@@ -27,9 +28,9 @@ from app.modules.learning.schemas import (
 )
 from app.modules.learning.services.access import (
     ensure_active_enrollment,
-    ensure_course_available_for_learning,
     ensure_enrollment_access,
     is_course_available,
+    ensure_course_available_for_existing_enrollment,
 )
 from app.modules.learning.services.progress import ProgressService
 from app.modules.users.models import User
@@ -79,6 +80,38 @@ class EnrollmentService:
         self._courses = CourseRepository(session)
         self._progress = ProgressService(session)
 
+    async def enroll_for_corporate_assignment(self, user: User, course: Course) -> Enrollment:
+        """Create or reactivate an enrollment without committing its caller's transaction."""
+        if not is_course_available(course):
+            raise ApiError(409, "course_not_available", "New enrollment requires a published course.")
+        if course.author_id == user.id:
+            raise ApiError(403, "own_course_enrollment_forbidden", "The author cannot enroll in their own course.")
+        # Serialise first-time enrollments for this learner so two assignments
+        # from separate organizations cannot race on the unique user/course key.
+        await self._session.scalar(select(User).where(User.id == user.id).with_for_update())
+        enrollment = await self._enrollments.get_by_user_and_course(user.id, course.id, for_update=True)
+        now = datetime.now(UTC)
+        if enrollment is None:
+            enrollment = await self._enrollments.add(user_id=user.id, course_id=course.id)
+            enrollment.course = course
+            enrollment.last_activity_at = now
+            await self._events.add(
+                enrollment_id=enrollment.id,
+                event_type=LearningEventType.ENROLLED.value,
+                payload={"course_id": str(course.id), "source": "corporate_assignment"},
+            )
+        elif not enrollment.is_active:
+            enrollment.status = EnrollmentStatus.ACTIVE.value
+            enrollment.cancelled_at = None
+            enrollment.last_activity_at = now
+            await self._events.add(
+                enrollment_id=enrollment.id,
+                event_type=LearningEventType.REACTIVATED.value,
+                payload={"course_id": str(course.id), "source": "corporate_assignment"},
+            )
+        await self._progress.reconcile(enrollment)
+        return enrollment
+
     async def enroll(
         self, user: User, course_id: uuid.UUID
     ) -> tuple[EnrollmentRead, bool]:
@@ -88,7 +121,7 @@ class EnrollmentService:
         existing cancelled row is reactivated.
         """
         course = await self._courses.get_by_id(course_id, with_structure=False)
-        if course is None or not is_course_available(course):
+        if course is None:
             raise ApiError(404, "course_not_found", "Course not found.")
         if course.author_id == user.id:
             raise ApiError(
@@ -97,9 +130,17 @@ class EnrollmentService:
                 "The author cannot enroll in their own course.",
             )
 
+        await self._session.scalar(select(User).where(User.id == user.id).with_for_update())
         existing = await self._enrollments.get_by_user_and_course(
             user.id, course.id, for_update=True
         )
+        is_archived_reactivation = (
+            existing is not None
+            and not existing.is_active
+            and course.status == CourseStatus.ARCHIVED.value
+        )
+        if not is_course_available(course) and not is_archived_reactivation:
+            raise ApiError(404, "course_not_found", "Course not found.")
         now = datetime.now(UTC)
         created = existing is None
 
@@ -235,7 +276,7 @@ class EnrollmentService:
         enrollment = await self._enrollments.get_by_id(enrollment_id, for_update=True)
         enrollment = ensure_active_enrollment(enrollment, user)
         assert enrollment is not None
-        ensure_course_available_for_learning(enrollment.course)
+        ensure_course_available_for_existing_enrollment(enrollment)
         if enrollment.started_at is None:
             enrollment.started_at = datetime.now(UTC)
             await self._events.add(

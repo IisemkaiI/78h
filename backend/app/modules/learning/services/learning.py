@@ -217,7 +217,9 @@ class LearningService:
                 "enrollment_required",
                 "An active enrollment is required to access lesson content.",
             )
-        if not is_course_available(course):
+        if not is_course_available(course) and not (
+            enrollment.is_active and course.status == CourseStatus.ARCHIVED.value
+        ):
             raise ApiError(
                 409,
                 "course_not_available",

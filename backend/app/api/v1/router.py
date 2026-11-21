@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import assessments, auth, catalog, certificates, courses, learning, notifications, system, users
+from app.api.v1.endpoints import admin, assessments, auth, catalog, certificates, courses, learning, notifications, organizations, system, users
 
 api_router = APIRouter()
 api_router.include_router(system.router)
@@ -14,3 +14,5 @@ api_router.include_router(learning.router)
 api_router.include_router(assessments.router)
 api_router.include_router(certificates.router)
 api_router.include_router(notifications.router)
+api_router.include_router(organizations.router)
+api_router.include_router(admin.router)

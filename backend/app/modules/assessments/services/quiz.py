@@ -162,7 +162,7 @@ class QuizService:
         if enrollment is None:
             raise ApiError(403, "enrollment_required", "An active enrollment is required.")
         course = await self.session.get(Course, course_id)
-        if course is None or course.status != "published":
+        if course is None or course.status not in {"published", "archived"}:
             raise ApiError(409, "course_not_available", "The course is not available for learning.")
         return enrollment
 

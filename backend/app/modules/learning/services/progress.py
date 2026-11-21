@@ -34,7 +34,7 @@ from app.modules.learning.schemas import (
 )
 from app.modules.learning.services.access import (
     ensure_active_enrollment,
-    ensure_course_available_for_learning,
+    ensure_course_available_for_existing_enrollment,
     ensure_enrollment_access,
 )
 from app.modules.learning.services.progress_calc import calculate_progress
@@ -216,7 +216,7 @@ class ProgressService:
         enrollment = await self._enrollments.get_by_id(enrollment_id, for_update=True)
         enrollment = ensure_active_enrollment(enrollment, user)
         assert enrollment is not None
-        ensure_course_available_for_learning(enrollment.course)
+        ensure_course_available_for_existing_enrollment(enrollment)
 
         lesson = await self._lessons.get_by_id(lesson_id)
         if (

@@ -10,3 +10,4 @@ argon2-cffi==25.1.0
 pyjwt==2.15.1
 alembic==1.20.1
 reportlab==5.1.0
+celery[redis]==5.5.3

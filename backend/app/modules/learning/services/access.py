@@ -62,3 +62,13 @@ def ensure_course_available_for_learning(course: Course) -> Course:
             "The course is no longer available for learning.",
         )
     return course
+
+
+def ensure_course_available_for_existing_enrollment(enrollment: Enrollment) -> Course:
+    """Allow an active learner to finish a course archived after enrollment."""
+    course = enrollment.course
+    if is_course_available(course) or (
+        enrollment.is_active and course.status == CourseStatus.ARCHIVED.value
+    ):
+        return course
+    raise ApiError(409, "course_not_available", "The course is no longer available for learning.")
