@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     certificates_storage_dir: Path = PROJECT_ROOT / "backend" / "var" / "certificates"
     public_frontend_url: str = "http://127.0.0.1:5173"
 
+    # Optional directory with a compiled SPA build. When set, FastAPI serves it
+    # with a history-API fallback (single-container deployments such as Amvera).
+    frontend_dist_dir: Path | None = None
+
     @field_validator("jwt_secret")
     @classmethod
     def _require_strong_jwt_secret(cls, value: SecretStr) -> SecretStr:
@@ -94,6 +98,14 @@ class Settings(BaseSettings):
     @classmethod
     def _resolve_certificate_storage(cls, value: Path) -> Path:
         """Resolve relative storage overrides from the repository root."""
+        return value if value.is_absolute() else (PROJECT_ROOT / value).resolve()
+
+    @field_validator("frontend_dist_dir")
+    @classmethod
+    def _resolve_frontend_dist(cls, value: Path | None) -> Path | None:
+        """Resolve a relative SPA directory from the repository root."""
+        if value is None:
+            return None
         return value if value.is_absolute() else (PROJECT_ROOT / value).resolve()
 
     @property
