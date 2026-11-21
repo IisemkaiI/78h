@@ -2,20 +2,13 @@ import { Link } from 'react-router-dom';
 
 import type { CatalogCourse } from '../../types/api';
 import { courseLevelLabel, formatDuration } from '../../utils/labels';
-
-function coverLetter(title: string): string {
-  return title.trim().charAt(0).toUpperCase() || 'К';
-}
+import { CourseCover } from './CourseCover';
 
 export function CourseCard({ course }: { course: CatalogCourse }) {
   return (
     <article className="course-card">
       <Link className="course-card__cover" to={`/catalog/${course.slug}`} tabIndex={-1} aria-hidden="true">
-        {course.cover_image_url ? (
-          <img src={course.cover_image_url} alt="" loading="lazy" />
-        ) : (
-          <span className="course-card__cover-letter">{coverLetter(course.title)}</span>
-        )}
+        <CourseCover title={course.title} slug={course.slug} category={course.category.name} imageUrl={course.cover_image_url} />
       </Link>
 
       <div className="course-card__body">

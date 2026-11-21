@@ -1,4 +1,5 @@
 import type { Category, CourseLevel } from '../../types/api';
+import { CourseCover } from './CourseCover';
 
 export interface CourseFormValues {
   title: string;
@@ -150,7 +151,7 @@ export function CourseFields({
       </div>
 
       <label className="field" htmlFor={`${idPrefix}-cover`}>
-        <span className="field__label">Ссылка на обложку</span>
+        <span className="field__label">Фото или обложка курса</span>
         <input
           id={`${idPrefix}-cover`}
           className="input"
@@ -161,8 +162,18 @@ export function CourseFields({
           disabled={disabled}
           placeholder="https://example.com/cover.jpg"
         />
-        <span className="field__hint">Необязательно. Абсолютный адрес http(s).</span>
+        <span className="field__hint">Необязательно. Вставьте прямую ссылку на фото — ниже появится предпросмотр.</span>
       </label>
+      {values.cover_image_url.trim() && (
+        <div className="course-form__cover-preview" aria-label="Предпросмотр обложки курса">
+          <CourseCover
+            title={values.title || 'Название курса'}
+            slug={`preview-${idPrefix}`}
+            category={categories.find((category) => category.id === values.category_id)?.name ?? 'Образование'}
+            imageUrl={values.cover_image_url.trim()}
+          />
+        </div>
+      )}
     </div>
   );
 }

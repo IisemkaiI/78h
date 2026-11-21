@@ -89,14 +89,6 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="home-intro" aria-label="О платформе">
-        <p className="home-intro__label">НАЧНИТЕ С ТОГО, ЧТО ВАЖНО</p>
-        <p className="home-intro__statement">
-          Платформа для тех, кто <span>учится всю жизнь</span> — и тех, кто готов учить.
-        </p>
-        <p className="home-intro__note">Открыто. Бесплатно. В вашем ритме.</p>
-      </section>
-
       <section className="home-pathways" aria-label="Что можно делать на платформе">
         {pathways.map((item) => (
           <article className="pathway" key={item.number}>

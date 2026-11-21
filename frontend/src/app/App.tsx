@@ -22,6 +22,10 @@ import { NewCoursePage } from '../pages/NewCoursePage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { ProfilePage } from '../pages/ProfilePage';
 import { RegisterPage } from '../pages/RegisterPage';
+import { OrganizationsPage } from '../pages/OrganizationsPage';
+import { OrganizationCabinetPage } from '../pages/OrganizationCabinetPage';
+import { AcceptOrganizationInvitationPage } from '../pages/AcceptOrganizationInvitationPage';
+import { AdminPage } from '../pages/AdminPage';
 import { ThemeProvider } from '../theme/ThemeContext';
 import './App.css';
 
@@ -38,6 +42,10 @@ export function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/certificates/verify/:verificationCode" element={<CertificateVerificationPage />} />
+              <Route path="/organizations/invitations/accept" element={<AcceptOrganizationInvitationPage />} />
+              <Route path="/organizations" element={<ProtectedRoute><OrganizationsPage /></ProtectedRoute>} />
+              <Route path="/organizations/:organizationId" element={<ProtectedRoute><OrganizationCabinetPage /></ProtectedRoute>} />
+              <Route path="/admin" element={<RequirePermission permission="admin:manage_platform"><AdminPage /></RequirePermission>} />
               <Route
                 path="/certificates"
                 element={

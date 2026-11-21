@@ -60,6 +60,136 @@ export interface UserProfile {
   permissions: string[];
 }
 
+/* --- Sprint 8: organizations and corporate learning --------------------- */
+
+export type OrganizationRole = 'owner' | 'admin' | 'manager' | 'employee';
+export type InvitationRole = 'admin' | 'manager' | 'employee';
+export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+export type CorporateAssignmentStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'active' | 'suspended' | 'archived';
+  created_by_id: string;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+}
+
+export interface OrganizationMembership {
+  id: string;
+  user_id: string;
+  display_name: string;
+  email: string;
+  role: OrganizationRole;
+  status: 'active' | 'suspended' | 'removed';
+  joined_at: string | null;
+  created_at: string;
+  can_update_role: boolean;
+  can_remove: boolean;
+  department_id: string | null;
+}
+
+export interface OrganizationDepartment {
+  id: string;
+  organization_id: string;
+  name: string;
+  slug: string;
+  members_count: number;
+}
+
+export interface AdminOverview {
+  users_total: number;
+  organizations_total: number;
+  courses_total: number;
+  assignments_total: number;
+  assignments_pending: number;
+  assignments_accepted: number;
+  completed_courses: number;
+  average_progress_percent: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  display_name: string;
+  is_active: boolean;
+  roles: string[];
+  created_at: string;
+}
+
+export interface AdminCourse {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  author_name: string;
+  created_at: string;
+}
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  members_count: number;
+  created_at: string;
+}
+
+export interface OrganizationInvitation {
+  id: string;
+  email: string;
+  role: InvitationRole;
+  status: InvitationStatus;
+  expires_at: string;
+  created_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  token?: string;
+}
+
+export interface CorporateAssignment {
+  id: string;
+  organization_id: string;
+  membership_id: string;
+  learner_user_id: string;
+  learner_name: string;
+  department_id: string | null;
+  course_id: string;
+  course_title: string;
+  enrollment_id: string | null;
+  enrollment_status: EnrollmentStatus | null;
+  progress_percent: number | null;
+  is_course_completed: boolean | null;
+  status: CorporateAssignmentStatus;
+  is_required: boolean;
+  due_at: string | null;
+  assigned_at: string;
+  accepted_at: string | null;
+  declined_at: string | null;
+  cancelled_at: string | null;
+  overdue_at: string | null;
+}
+
+export interface CorporateAssignmentPage {
+  items: CorporateAssignment[];
+  total: number;
+}
+
+export interface OrganizationLearningStats {
+  assignments_total: number;
+  pending: number;
+  accepted: number;
+  declined: number;
+  cancelled: number;
+  learners_total: number;
+  active_enrollments: number;
+  completed_enrollments: number;
+  average_progress_percent: number;
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: 'bearer';

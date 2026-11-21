@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { ProgressBar } from '../components/learning/ProgressBar';
+import { CourseCover } from '../components/course/CourseCover';
 import { getCatalogCourse } from '../services/catalogService';
 import { enroll, getEnrollmentStatus } from '../services/learningService';
 import type { CatalogCourseDetail, Enrollment } from '../types/api';
@@ -262,11 +263,7 @@ export function CourseDetailPage() {
 
       <header className="course-page__header card">
         <div className="course-page__cover">
-          {course.cover_image_url ? (
-            <img src={course.cover_image_url} alt="" />
-          ) : (
-            <span aria-hidden="true">{course.title.charAt(0).toUpperCase()}</span>
-          )}
+          <CourseCover title={course.title} slug={course.slug} category={course.category.name} imageUrl={course.cover_image_url} />
         </div>
 
         <div className="course-page__intro">

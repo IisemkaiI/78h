@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
 import { ProgressBar } from '../components/learning/ProgressBar';
+import { CourseCover } from '../components/course/CourseCover';
 import {
   cancelEnrollment,
   enroll,
@@ -40,11 +41,7 @@ function EnrollmentCard({
   return (
     <li className={`learning-card${active ? '' : ' learning-card--cancelled'}`}>
       <div className="learning-card__cover" aria-hidden="true">
-        {course.cover_image_url ? (
-          <img src={course.cover_image_url} alt="" />
-        ) : (
-          <span>{course.title.charAt(0).toUpperCase()}</span>
-        )}
+        <CourseCover title={course.title} slug={course.slug} category={course.category_name} imageUrl={course.cover_image_url} />
       </div>
 
       <div className="learning-card__body">
