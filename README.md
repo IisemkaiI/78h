@@ -1,4 +1,4 @@
-# Education Platform
+#ужас https://uceeeeeee-semka.msk1.amvera.tech/catalog
 
 Многофункциональная образовательная LMS-платформа. Репозиторий содержит
 фундамент проекта (**Sprint 0**), базовую систему пользователей (**Sprint 1**),
