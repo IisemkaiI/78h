@@ -14,6 +14,7 @@ import app.modules.courses.models  # noqa: F401  (registers course metadata)
 import app.modules.learning.models  # noqa: F401  (registers learning metadata)
 import app.modules.assessments.models  # noqa: F401  (registers assessment metadata)
 import app.modules.certificates.models  # noqa: F401  (registers certificate metadata)
+import app.modules.organizations.models  # noqa: F401 (registers organization metadata)
 import app.modules.users.models  # noqa: F401  (registers user metadata)
 from app.core.database import Base
 from app.modules.users.rbac import RoleCode
@@ -68,6 +69,11 @@ async def test_expected_tables_exist(session_factory: async_sessionmaker[AsyncSe
         "submission_versions",
         "assignment_reviews",
         "certificates",
+        "organizations",
+        "organization_memberships",
+        "organization_invitations",
+        "organization_course_assignments",
+        "organization_departments",
         "alembic_version",
     } <= tables
 
@@ -187,6 +193,11 @@ async def test_course_check_constraints_exist(
                 )
             )
         )
+        role_check = await session.scalar(text(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conrelid = 'organization_memberships'::regclass AND contype = 'c' "
+            "AND pg_get_constraintdef(oid) LIKE '%role%' LIMIT 1"
+        ))
 
     assert names == {
         "ck_courses_status_values",
@@ -196,6 +207,19 @@ async def test_course_check_constraints_exist(
         "ck_lesson_progress_state_values",
         "ck_learning_events_event_type_values",
     }
+    assert role_check is not None
+    assert all(role in role_check for role in ["owner", "admin", "manager", "employee"])
+
+
+async def test_invitation_roles_include_scoped_admin(session_factory: async_sessionmaker[AsyncSession]) -> None:
+    async with session_factory() as session:
+        role_check = await session.scalar(text(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conrelid = 'organization_invitations'::regclass AND contype = 'c' "
+            "AND pg_get_constraintdef(oid) LIKE '%role%' LIMIT 1"
+        ))
+    assert role_check is not None
+    assert all(role in role_check for role in ["admin", "manager", "employee"])
 
 
 async def test_learning_permissions_are_seeded(
